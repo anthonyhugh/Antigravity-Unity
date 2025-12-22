@@ -94,10 +94,6 @@ namespace Antigravity.Ide.Editor
                         languageVersion = "latest" // Default or extract if accessible via reflection/property
                     };
 
-                    // Try to get LanguageVersion if available
-                    // assembly.compilerOptions.LanguageVersion (PascalCase in recent Unity)
-                    // For now strict compatibility isn't critical for language version as ProjectGeneration uses it mainly for GUIDs
-
                     yield return new Assembly(
                         assembly.name,
                         outputPath,
@@ -108,7 +104,7 @@ namespace Antigravity.Ide.Editor
                         assembly.flags,
                         options,
 #if UNITY_2020_2_OR_NEWER
-						assembly.rootNamespace
+                        assembly.rootNamespace
 #else
                         ""
 #endif
@@ -148,114 +144,117 @@ namespace Antigravity.Ide.Editor
         {
             return new string[0];
         }
-    }
-}
 
-private static string ResolvePotentialParentPackageAssetPath(string assetPath)
-{
-    const string packagesPrefix = "packages/";
-    if (!assetPath.StartsWith(packagesPrefix, StringComparison.OrdinalIgnoreCase))
-    {
-        return null;
-    }
+        public IEnumerable<string> GetAllAssetPaths()
+        {
+            return AssetDatabase.GetAllAssetPaths();
+        }
 
-    var followupSeparator = assetPath.IndexOf('/', packagesPrefix.Length);
-    if (followupSeparator == -1)
-    {
-        return assetPath.ToLowerInvariant();
-    }
+        private static string ResolvePotentialParentPackageAssetPath(string assetPath)
+        {
+            const string packagesPrefix = "packages/";
+            if (!assetPath.StartsWith(packagesPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
 
-    return assetPath.Substring(0, followupSeparator).ToLowerInvariant();
-}
+            var followupSeparator = assetPath.IndexOf('/', packagesPrefix.Length);
+            if (followupSeparator == -1)
+            {
+                return assetPath.ToLowerInvariant();
+            }
 
-public UnityEditor.PackageManager.PackageInfo FindForAssetPath(string assetPath)
-{
-    var parentPackageAssetPath = ResolvePotentialParentPackageAssetPath(assetPath);
-    if (parentPackageAssetPath == null)
-    {
-        return null;
-    }
+            return assetPath.Substring(0, followupSeparator).ToLowerInvariant();
+        }
 
-    if (m_PackageInfoCache.TryGetValue(parentPackageAssetPath, out var cachedPackageInfo))
-    {
-        return cachedPackageInfo;
-    }
+        public UnityEditor.PackageManager.PackageInfo FindForAssetPath(string assetPath)
+        {
+            var parentPackageAssetPath = ResolvePotentialParentPackageAssetPath(assetPath);
+            if (parentPackageAssetPath == null)
+            {
+                return null;
+            }
 
-    var result = UnityEditor.PackageManager.PackageInfo.FindForAssetPath(parentPackageAssetPath);
-    m_PackageInfoCache[parentPackageAssetPath] = result;
-    return result;
-}
+            if (m_PackageInfoCache.TryGetValue(parentPackageAssetPath, out var cachedPackageInfo))
+            {
+                return cachedPackageInfo;
+            }
 
-public bool IsInternalizedPackagePath(string path)
-{
-    if (string.IsNullOrEmpty(path.Trim()))
-    {
-        return false;
-    }
-    var packageInfo = FindForAssetPath(path);
-    if (packageInfo == null)
-    {
-        return false;
-    }
-    var packageSource = packageInfo.source;
-    switch (packageSource)
-    {
-        case PackageSource.Embedded:
-            return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Embedded);
-        case PackageSource.Registry:
-            return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Registry);
-        case PackageSource.BuiltIn:
-            return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.BuiltIn);
-        case PackageSource.Unknown:
-            return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Unknown);
-        case PackageSource.Local:
-            return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Local);
-        case PackageSource.Git:
-            return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Git);
-        case PackageSource.LocalTarball:
-            return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.LocalTarBall);
-    }
+            var result = UnityEditor.PackageManager.PackageInfo.FindForAssetPath(parentPackageAssetPath);
+            m_PackageInfoCache[parentPackageAssetPath] = result;
+            return result;
+        }
 
-    return false;
-}
+        public bool IsInternalizedPackagePath(string path)
+        {
+            if (string.IsNullOrEmpty(path.Trim()))
+            {
+                return false;
+            }
+            var packageInfo = FindForAssetPath(path);
+            if (packageInfo == null)
+            {
+                return false;
+            }
+            var packageSource = packageInfo.source;
+            switch (packageSource)
+            {
+                case PackageSource.Embedded:
+                    return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Embedded);
+                case PackageSource.Registry:
+                    return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Registry);
+                case PackageSource.BuiltIn:
+                    return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.BuiltIn);
+                case PackageSource.Unknown:
+                    return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Unknown);
+                case PackageSource.Local:
+                    return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Local);
+                case PackageSource.Git:
+                    return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Git);
+                case PackageSource.LocalTarball:
+                    return !ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.LocalTarBall);
+            }
 
-public ResponseFileData ParseResponseFile(string responseFilePath, string projectDirectory, string[] systemReferenceDirectories)
-{
-    return CompilationPipeline.ParseResponseFile(
-      responseFilePath,
-      projectDirectory,
-      systemReferenceDirectories
-    );
-}
+            return false;
+        }
 
-public void ToggleProjectGeneration(ProjectGenerationFlag preference)
-{
-    if (ProjectGenerationFlag.HasFlag(preference))
-    {
-        ProjectGenerationFlag ^= preference;
-    }
-    else
-    {
-        ProjectGenerationFlag |= preference;
-    }
-}
+        public ResponseFileData ParseResponseFile(string responseFilePath, string projectDirectory, string[] systemReferenceDirectories)
+        {
+            return CompilationPipeline.ParseResponseFile(
+              responseFilePath,
+              projectDirectory,
+              systemReferenceDirectories
+            );
+        }
 
-internal void ResetPackageInfoCache()
-{
-    m_PackageInfoCache.Clear();
-}
+        public void ToggleProjectGeneration(ProjectGenerationFlag preference)
+        {
+            if (ProjectGenerationFlag.HasFlag(preference))
+            {
+                ProjectGenerationFlag ^= preference;
+            }
+            else
+            {
+                ProjectGenerationFlag |= preference;
+            }
+        }
 
-public void ResetProjectGenerationFlag()
-{
-    ProjectGenerationFlag = ProjectGenerationFlag.None;
-}
+        internal void ResetPackageInfoCache()
+        {
+            m_PackageInfoCache.Clear();
+        }
 
-public string GetAssemblyName(string assemblyOutputPath, string assemblyName)
-{
-    if (assemblyOutputPath == PlayerAssemblyOutput)
-        return assemblyName + ".Player";
+        public void ResetProjectGenerationFlag()
+        {
+            ProjectGenerationFlag = ProjectGenerationFlag.None;
+        }
 
-    return assemblyName;
-}
+        public string GetAssemblyName(string assemblyOutputPath, string assemblyName)
+        {
+            if (assemblyOutputPath == PlayerAssemblyOutput)
+                return assemblyName + ".Player";
+
+            return assemblyName;
+        }
     }
 }
