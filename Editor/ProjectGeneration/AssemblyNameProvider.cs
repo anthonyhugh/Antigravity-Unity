@@ -23,7 +23,7 @@ namespace Antigravity.Ide.Editor
         IEnumerable<Assembly> GetAssemblies(Func<string, bool> shouldFileBePartOfSolution);
         IEnumerable<string> GetAllAssetPaths();
         UnityEditor.PackageManager.PackageInfo FindForAssetPath(string assetPath);
-        ResponseFileData ParseResponseFile(string responseFilePath, string projectDirectory, string[] systemReferenceDirectories);
+        UnityEditor.Compilation.ResponseFileData ParseResponseFile(string responseFilePath, string projectDirectory, string[] systemReferenceDirectories);
         void ToggleProjectGeneration(ProjectGenerationFlag preference);
         IEnumerable<string> GetAnalyzers(string assemblyName, IEnumerable<Assembly> allAssemblies);
         string GetAnalyzerRulesetPath(string assemblyName, IEnumerable<Assembly> allAssemblies);
@@ -62,7 +62,7 @@ namespace Antigravity.Ide.Editor
 
         public string GetAssemblyNameFromScriptPath(string path)
         {
-            return CompilationPipeline.GetAssemblyNameFromScriptPath(path);
+            return UnityEditor.Compilation.CompilationPipeline.GetAssemblyNameFromScriptPath(path);
         }
 
         internal static readonly string AssemblyOutput = @"Temp\bin\Debug\".NormalizePathSeparators();
@@ -70,19 +70,19 @@ namespace Antigravity.Ide.Editor
 
         public IEnumerable<Assembly> GetAssemblies(Func<string, bool> shouldFileBePartOfSolution)
         {
-            IEnumerable<Assembly> assemblies = GetAssembliesByType(AssembliesType.Editor, shouldFileBePartOfSolution, AssemblyOutput);
+            IEnumerable<Assembly> assemblies = GetAssembliesByType(UnityEditor.Compilation.AssembliesType.Editor, shouldFileBePartOfSolution, AssemblyOutput);
 
             if (!ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.PlayerAssemblies))
             {
                 return assemblies;
             }
-            var playerAssemblies = GetAssembliesByType(AssembliesType.Player, shouldFileBePartOfSolution, PlayerAssemblyOutput);
+            var playerAssemblies = GetAssembliesByType(UnityEditor.Compilation.AssembliesType.Player, shouldFileBePartOfSolution, PlayerAssemblyOutput);
             return assemblies.Concat(playerAssemblies);
         }
 
-        private static IEnumerable<Assembly> GetAssembliesByType(AssembliesType type, Func<string, bool> shouldFileBePartOfSolution, string outputPath)
+        private static IEnumerable<Assembly> GetAssembliesByType(UnityEditor.Compilation.AssembliesType type, Func<string, bool> shouldFileBePartOfSolution, string outputPath)
         {
-            foreach (var assembly in CompilationPipeline.GetAssemblies(type))
+            foreach (var assembly in UnityEditor.Compilation.CompilationPipeline.GetAssemblies(type))
             {
                 if (assembly.sourceFiles.Any(shouldFileBePartOfSolution))
                 {
@@ -218,9 +218,9 @@ namespace Antigravity.Ide.Editor
             return false;
         }
 
-        public ResponseFileData ParseResponseFile(string responseFilePath, string projectDirectory, string[] systemReferenceDirectories)
+        public UnityEditor.Compilation.ResponseFileData ParseResponseFile(string responseFilePath, string projectDirectory, string[] systemReferenceDirectories)
         {
-            return CompilationPipeline.ParseResponseFile(
+            return UnityEditor.Compilation.CompilationPipeline.ParseResponseFile(
               responseFilePath,
               projectDirectory,
               systemReferenceDirectories
