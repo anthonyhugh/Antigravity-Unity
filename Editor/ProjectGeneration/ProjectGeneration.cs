@@ -31,12 +31,6 @@ namespace Antigravity.Ide.Editor
 
     internal class ProjectGeneration : IGenerator
     {
-        public enum ScriptingLanguage
-        {
-            None,
-            CSharp
-        }
-
         public const string MSBuildNamespaceUri = "http://schemas.microsoft.com/developer/msbuild/2003";
 
         /// <summary>
@@ -102,7 +96,7 @@ namespace Antigravity.Ide.Editor
         internal readonly IGUIDGenerator m_GUIDGenerator;
         internal readonly string m_ProjectName;
 
-        internal readonly string ProjectDirectory;
+        public string ProjectDirectory { get; }
 
         public IAssemblyNameProvider AssemblyNameProvider => m_AssemblyNameProvider;
 
