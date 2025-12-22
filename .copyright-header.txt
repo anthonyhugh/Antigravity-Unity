@@ -1,0 +1,6 @@
+/*---------------------------------------------------------------------------------------------
+ *  Based on Unity Technologies' IDE integration architecture.
+ *  Adapted and developed by Muhammad Humza Butt for Antigravity IDE.
+ *  Copyright (c) 2025 Muhammad Humza Butt
+ *  Licensed under the MIT License. See LICENSE file in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/

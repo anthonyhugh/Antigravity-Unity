@@ -11,5 +11,9 @@
     "code"
   ],
   "category": "Editor Extensions",
+  "author": {
+    "name": "Muhammad Humza Butt",
+    "url": "https://github.com/humza-13"
+  },
   "dependencies": {}
 }

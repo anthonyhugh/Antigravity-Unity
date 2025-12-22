@@ -42,3 +42,14 @@ In **External Tools**, you can toggle specialized settings:
 - **"Antigravity not found"**: Ensure Antigravity is installed in the standard location (`/Applications/Antigravity.app` or `%LOCALAPPDATA%\Programs\Antigravity`). If installed successfully but not detected, verify the path or select it manually.
 - **Intellisense not working**: Verify that `.csproj` files are being generated. Go to **Preferences > External Tools** and make sure the relevant "Generate .csproj files for..." checkboxes are selected, then click **Regenerate project files**.
 
+## Credits
+
+**Author:** Muhammad Humza Butt
+
+This package is based on Unity Technologies' IDE integration architecture and was adapted for the Antigravity IDE. While the core infrastructure was inspired by Unity's reference implementations, all Antigravity-specific logic, discovery mechanisms, and integration code were developed independently.
+
+## License
+
+MIT License - Copyright (c) 2025 Muhammad Humza Butt
+
+See [LICENSE](LICENSE) for full details.
