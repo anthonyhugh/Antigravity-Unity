@@ -252,7 +252,7 @@ namespace Antigravity.Ide.Editor
                 return true;
 
             // We only want to check for cs scripts
-            if (ProjectGeneration.ScriptingLanguageForFile(path) != ProjectGeneration.ScriptingLanguage.CSharp)
+            if (ProjectGeneration.ScriptingLanguageFor(Path.GetExtension(path)) != ScriptingLanguage.CSharp)
                 return true;
 
             // Even on windows, the package manager requires relative path + unix style separators for queries

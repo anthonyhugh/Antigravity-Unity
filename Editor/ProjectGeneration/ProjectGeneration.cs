@@ -27,6 +27,7 @@ namespace Antigravity.Ide.Editor
         string SolutionFile();
         string ProjectDirectory { get; }
         IAssemblyNameProvider AssemblyNameProvider { get; }
+        bool IsSupportedFile(string path);
     }
 
     internal class ProjectGeneration : IGenerator
@@ -367,27 +368,28 @@ namespace Antigravity.Ide.Editor
             {
                 projectBuilder.Append(@"    <None Include=""").Append(EscapedRelativePathFor(otherFile, out var packageInfo)).Append(@""" />").Append(k_WindowsNewline);
             }
-
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
 
             // References
-            var references = assembly.references;
-            foreach (var reference in references)
+            // Handle Project References
+            foreach (var referenceName in assembly.references)
             {
-                if (reference.name != assembly.name && allAssemblies.Any(a => a.name == reference.name))
+                var reference = allAssemblies.FirstOrDefault(a => a.name == referenceName);
+                if (reference != null)
                 {
-                    // Project reference
                     AppendProjectReference(assembly, reference, projectBuilder);
                 }
-                else
-                {
-                    // DLL reference
-                    var relativePath = FileUtility.MakeRelativeToProjectPath(reference.outputPath);
-                    projectBuilder.Append(@"    <Reference Include=""").Append(reference.name).Append(@""">").Append(k_WindowsNewline);
-                    projectBuilder.Append(@"        <HintPath>").Append(relativePath).Append(@"</HintPath>").Append(k_WindowsNewline);
-                    projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
-                }
+            }
+
+            // Handle DLL/Compiled References
+            foreach (var compiledRef in assembly.compiledAssemblyReferences)
+            {
+                var relativePath = FileUtility.MakeRelativeToProjectPath(compiledRef);
+                var referenceName = Path.GetFileNameWithoutExtension(compiledRef);
+                projectBuilder.Append(@"    <Reference Include=""").Append(referenceName).Append(@""">").Append(k_WindowsNewline);
+                projectBuilder.Append(@"        <HintPath>").Append(relativePath).Append(@"</HintPath>").Append(k_WindowsNewline);
+                projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
             }
 
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
@@ -535,7 +537,13 @@ namespace Antigravity.Ide.Editor
 
             // Exclude files from PackageManager/BuiltIn packages if needed
             // For now allow supported extensions
+            // For now allow supported extensions
             return IsSupportedExtension(extension);
+        }
+
+        public bool IsSupportedFile(string path)
+        {
+            return IsSupportedExtension(Path.GetExtension(path));
         }
 
         internal static bool ShouldFileBePartOfSolutionKey(string file)
