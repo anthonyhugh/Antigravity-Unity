@@ -178,8 +178,14 @@ namespace Antigravity.Ide.Editor
 
             foreach (var assembly in assemblies)
             {
-                var newAssembly = new Assembly(assembly.name, assembly.outputPath, assembly.sourceFiles, assembly.defines, assembly.references, assembly.compilerOptions.ResponseFiles, assembly.compilerOptions.AllowUnsafeCode, assembly.compilerOptions.ApiCompatibilityLevel);
-                newAssembly.compilerOptions.ResponseFiles = newAssembly.compilerOptions.ResponseFiles.Concat(responseFilesData.SelectMany(x => x.Errors.Concat(x.FullPathErrors)).Distinct().ToArray()).ToArray();
+                var options = new ScriptCompilerOptions
+                {
+                    ResponseFiles = assembly.compilerOptions.ResponseFiles.Concat(responseFilesData.SelectMany(x => x.Errors).Distinct()).ToArray(),
+                    AllowUnsafeCode = assembly.compilerOptions.AllowUnsafeCode,
+                    ApiCompatibilityLevel = assembly.compilerOptions.ApiCompatibilityLevel,
+                    languageVersion = assembly.compilerOptions.languageVersion
+                };
+                var newAssembly = new Assembly(assembly.name, assembly.outputPath, assembly.sourceFiles, assembly.defines, assembly.references, assembly.compiledAssemblyReferences, assembly.flags, options, assembly.rootNamespace);
                 newAssemblies.Add(newAssembly);
             }
 
@@ -312,18 +318,15 @@ namespace Antigravity.Ide.Editor
             properties.RootNamespace = GetRootNamespace(assembly);
             properties.OutputPath = assembly.outputPath;
             // Analyzers
-            properties.Analyzers = m_AssemblyNameProvider.GetAnalyzers(assembly.name, allAssemblies);
+            properties.Analyzers = m_AssemblyNameProvider.GetAnalyzers(assembly.name, allAssemblies).ToArray();
             properties.RulesetPath = m_AssemblyNameProvider.GetAnalyzerRulesetPath(assembly.name, allAssemblies);
             properties.AnalyzerConfigPath = m_AssemblyNameProvider.GetAnalyzerConfigPath(assembly.name, allAssemblies);
             // Source generators
-            properties.AdditionalFilePaths = m_AssemblyNameProvider.GetAdditionalFilePaths(assembly.name, allAssemblies);
+            properties.AdditionalFilePaths = m_AssemblyNameProvider.GetAdditionalFilePaths(assembly.name, allAssemblies).ToArray();
 
             // RSP alterable
             foreach (var responseFileData in responseFilesData)
             {
-                if (responseFileData.Assembly != assembly.name)
-                    continue;
-
                 properties.Defines = properties.Defines.Concat(responseFileData.Defines).ToArray();
                 properties.Unsafe |= responseFileData.Unsafe;
             }
@@ -854,7 +857,7 @@ namespace Antigravity.Ide.Editor
 
         public static string GuidForSolution(string projectName, ScriptingLanguage language)
         {
-            if (language == ProjectGeneration.ScriptingLanguage.CSharp)
+            if (language == ScriptingLanguage.CSharp)
             {
                 // GUID for a C# class library
                 return "FAE04EC0-301F-11D3-BF4B-00C04F79EFBC";

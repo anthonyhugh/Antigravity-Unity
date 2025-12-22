@@ -53,7 +53,7 @@ namespace Antigravity.Ide.Editor
         public static Version LatestLanguageVersionSupported(Assembly assembly)
         {
 #if UNITY_2020_2_OR_NEWER
-			if (assembly?.compilerOptions != null && Version.TryParse(assembly.compilerOptions.LanguageVersion, out var result))
+			if (assembly?.compilerOptions != null && Version.TryParse(assembly.compilerOptions.languageVersion, out var result))
 				return result;
 
 			// if parsing fails, we know at least we have support for 8.0
