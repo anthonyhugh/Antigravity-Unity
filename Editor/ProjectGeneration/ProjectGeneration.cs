@@ -62,11 +62,7 @@ namespace Antigravity.Ide.Editor
 
         internal static ScriptingLanguage ScriptingLanguageFor(Assembly assembly)
         {
-            // CRITICAL FIX: The original code passed 'languageVersion' (e.g. "latest") 
-            // to a function that expected a file extension (e.g. ".cs").
-            // This caused it to return 'None', filtering out all projects.
-            // We now check the first source file's extension to determine the language.
-            
+            // FIX: Check source files directly to avoid version string mismatches
             if (assembly.sourceFiles.Length == 0)
                 return ScriptingLanguage.None;
 
@@ -164,7 +160,7 @@ namespace Antigravity.Ide.Editor
                 newAssemblies.Add(newAssembly);
             }
 
-            // CRITICAL FIX: Force generation.
+            // FIX: Force generation regardless of flags
             if (ShouldGenerateProject())
             {
                 Profiler.BeginSample("AntigravityEditor.SyncSolution");
@@ -196,7 +192,7 @@ namespace Antigravity.Ide.Editor
 
         private bool ShouldGenerateProject()
         {
-            // CRITICAL FIX: Always return true to ensure the solution is generated.
+            // FIX: Always return true to ensure SLN generation
             return true;
         }
 
@@ -273,7 +269,6 @@ namespace Antigravity.Ide.Editor
             var projectBuilder = new StringBuilder();
             var properties = new ProjectProperties();
 
-            // Setup properties
             properties.ProjectGuid = ProjectGuid(assembly);
             properties.LangVersion = k_TargetLanguageVersion;
             properties.AssemblyName = assembly.name;
@@ -284,7 +279,6 @@ namespace Antigravity.Ide.Editor
             properties.AnalyzerConfigPath = m_AssemblyNameProvider.GetAnalyzerConfigPath(assembly.name, allAssemblies);
             properties.AdditionalFilePaths = m_AssemblyNameProvider.GetAdditionalFilePaths(assembly.name, allAssemblies).ToArray();
 
-            // RSP alterable
             foreach (var responseFileData in responseFilesData)
             {
                 properties.Defines = properties.Defines.Concat(responseFileData.Defines).ToArray();
@@ -294,33 +288,27 @@ namespace Antigravity.Ide.Editor
             properties.Defines = properties.Defines.Concat(assembly.defines).Distinct().ToArray();
             properties.Unsafe |= assembly.compilerOptions.AllowUnsafeCode;
 
-            // VSTU Flavouring
             properties.FlavoringProjectType = "Local";
             properties.FlavoringBuildTarget = EditorUserBuildSettings.activeBuildTarget.ToString();
             properties.FlavoringUnityVersion = Application.unityVersion;
             properties.FlavoringPackageVersion = "2.0.22";
 
-            // HEADER GENERATION
             GetProjectHeader(properties, out var headerBuilder);
             projectBuilder.Append(headerBuilder);
 
-            // FILES GENERATION
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
             var files = assembly.sourceFiles;
             foreach (var file in files)
             {
                 var extension = Path.GetExtension(file).ToLower();
                 var fullPath = Path.GetFullPath(file);
-
                 projectBuilder.Append(@"    <Compile Include=""").Append(EscapedRelativePathFor(file, out var packageInfo)).Append(@""" />").Append(k_WindowsNewline);
             }
             if (allAssetsProjectParts.TryGetValue(assembly.name, out var assetsProjectPart))
                 projectBuilder.Append(assetsProjectPart);
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
 
-            // REFERENCES GENERATION
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
-
             foreach (var referenceName in assembly.references)
             {
                 var reference = allAssemblies.FirstOrDefault(a => a.name == referenceName);
@@ -330,9 +318,18 @@ namespace Antigravity.Ide.Editor
                 }
             }
 
+            // CRITICAL FIX FOR MISSING REFERENCES
             foreach (var compiledRef in assembly.compiledAssemblyReferences)
             {
                 var relativePath = FileUtility.MakeRelativeToProjectPath(compiledRef);
+
+                // If the file is external (like UnityEngine.dll), MakeRelative returns null.
+                // We must fall back to the absolute path in that case.
+                if (string.IsNullOrEmpty(relativePath))
+                {
+                    relativePath = compiledRef;
+                }
+
                 var referenceName = Path.GetFileNameWithoutExtension(compiledRef);
                 projectBuilder.Append(@"    <Reference Include=""").Append(referenceName).Append(@""">").Append(k_WindowsNewline);
                 projectBuilder.Append(@"        <HintPath>").Append(relativePath).Append(@"</HintPath>").Append(k_WindowsNewline);
