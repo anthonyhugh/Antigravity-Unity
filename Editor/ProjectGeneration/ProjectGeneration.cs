@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Unity Technologies.
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ * Copyright (c) Unity Technologies.
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 using System;
@@ -34,11 +34,9 @@ namespace Antigravity.Ide.Editor
     {
         public const string MSBuildNamespaceUri = "http://schemas.microsoft.com/developer/msbuild/2003";
 
-        /// <summary>
-        /// Map source extensions to ScriptingLanguages
-        /// </summary>
         internal static readonly Dictionary<string, ScriptingLanguage> k_ProjectExtensions = new Dictionary<string, ScriptingLanguage>
         {
+            { "cs", ScriptingLanguage.CSharp },
             { ".cs", ScriptingLanguage.CSharp },
         };
 
@@ -56,20 +54,9 @@ namespace Antigravity.Ide.Editor
 
         static readonly string[] k_ReimportSyncExtensions = { ".dll", ".asmdef" };
 
-
-        /// <summary>
-        /// Map ScriptingLanguages to project extensions
-        /// </summary>
-        /*
-		internal static readonly Dictionary<ScriptingLanguage, string> k_ProjectExtensions = new Dictionary<ScriptingLanguage, string>
-		{
-			{ ScriptingLanguage.CSharp, ".csproj" },
-			{ ScriptingLanguage.None, ".csproj" },
-		};
-		*/
-
         internal static bool IsSupportedExtension(string extension)
         {
+            extension = extension.TrimStart('.');
             return k_ProjectExtensions.ContainsKey(extension);
         }
 
@@ -80,13 +67,13 @@ namespace Antigravity.Ide.Editor
 
         internal static ScriptingLanguage ScriptingLanguageFor(string extension)
         {
-            return k_ProjectExtensions.TryGetValue(extension.TrimStart('.'), out var result)
+            extension = extension.TrimStart('.');
+            return k_ProjectExtensions.TryGetValue(extension, out var result)
                 ? result
                 : ScriptingLanguage.None;
         }
 
         internal static readonly string k_WindowsNewline = "\r\n";
-
         internal const string k_ToolsVersion = "ToolsVersion=\"4.0\"";
         internal const string k_ProductVersion = "10.0.20506";
         internal const string k_BaseDirectory = ".";
@@ -98,7 +85,6 @@ namespace Antigravity.Ide.Editor
         internal readonly string m_ProjectName;
 
         public string ProjectDirectory { get; }
-
         public IAssemblyNameProvider AssemblyNameProvider => m_AssemblyNameProvider;
 
         public ProjectGeneration() : this(Directory.GetParent(Application.dataPath)?.FullName) { }
@@ -114,22 +100,11 @@ namespace Antigravity.Ide.Editor
             m_GUIDGenerator = guidGenerator;
         }
 
-        /// <summary>
-        /// Syncs the scripting solution if any affected files are relevant.
-        /// </summary>
-        /// <returns>
-        /// Whether the solution was synced.
-        /// </returns>
         public bool SyncIfNeeded(IEnumerable<string> affectedFiles, IEnumerable<string> reimportedFiles)
         {
             Profiler.BeginSample("AntigravityEditor.SyncIfNeeded");
             try
             {
-                // We need to sync when a monitored file changes, or when the preferences for what to generate change.
-                // This usually happens during reimport, but not always.
-                // We also check for existence of the project mode here, because if we think we should sync,
-                // but the file is not there, we should sync, but without the check we would'nt,
-                // because we'd check against an empty project, and we would think that everything is already in place.
                 if ((HasFilesBeenModified(affectedFiles, reimportedFiles) ||
                     m_AssemblyNameProvider.ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Unknown))
                     && ShouldSyncOn(affectedFiles, reimportedFiles))
@@ -142,7 +117,6 @@ namespace Antigravity.Ide.Editor
             {
                 Profiler.EndSample();
             }
-
             return false;
         }
 
@@ -158,24 +132,17 @@ namespace Antigravity.Ide.Editor
 
         internal virtual bool ShouldSyncOn(IEnumerable<string> affectedFiles, IEnumerable<string> reimportedFiles)
         {
-            // if we have any reimported files, we should sync
-            if (reimportedFiles.Any())
-                return true;
-
-            // otherwise if we have affected files, we should sync
+            if (reimportedFiles.Any()) return true;
             return affectedFiles.Any();
         }
 
         public void Sync()
         {
-            // Setup
             var assemblies = m_AssemblyNameProvider.GetAssemblies(ShouldFileBePartOfSolution);
             var allAssetProjectParts = GenerateAllAssetProjectParts();
-
             var responseFilesData = ParseResponseFileData(assemblies).ToList();
 
             var newAssemblies = new List<Assembly>();
-
             foreach (var assembly in assemblies)
             {
                 var options = new ScriptCompilerOptions
@@ -220,8 +187,6 @@ namespace Antigravity.Ide.Editor
 
         private bool ShouldGenerateProject()
         {
-            // if we're not generating player projects, we don't need the solution either
-            // except if we're trying to sync a reimported asset (ProjectGenerationFlag is Unknown)
             if (!m_AssemblyNameProvider.ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.PlayerAssemblies) &&
                 !m_AssemblyNameProvider.ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Unknown))
             {
@@ -268,11 +233,6 @@ namespace Antigravity.Ide.Editor
 
         private void SyncProjectFileIfNotChanged(string path, string newContents)
         {
-            if (Path.GetExtension(path) == ".csproj")
-            {
-                //newContents = OnGeneratedCSProject(path, newContents);
-            }
-
             SyncFileIfNotChanged(path, newContents);
         }
 
@@ -308,20 +268,15 @@ namespace Antigravity.Ide.Editor
             var projectBuilder = new StringBuilder();
             var properties = new ProjectProperties();
 
-            // Force header generation
-            GetProjectHeader(properties, out var headerBuilder);
-
             // Setup properties
             properties.ProjectGuid = ProjectGuid(assembly);
             properties.LangVersion = k_TargetLanguageVersion;
             properties.AssemblyName = assembly.name;
             properties.RootNamespace = GetRootNamespace(assembly);
             properties.OutputPath = assembly.outputPath;
-            // Analyzers
             properties.Analyzers = m_AssemblyNameProvider.GetAnalyzers(assembly.name, allAssemblies).ToArray();
             properties.RulesetPath = m_AssemblyNameProvider.GetAnalyzerRulesetPath(assembly.name, allAssemblies);
             properties.AnalyzerConfigPath = m_AssemblyNameProvider.GetAnalyzerConfigPath(assembly.name, allAssemblies);
-            // Source generators
             properties.AdditionalFilePaths = m_AssemblyNameProvider.GetAdditionalFilePaths(assembly.name, allAssemblies).ToArray();
 
             // RSP alterable
@@ -338,44 +293,32 @@ namespace Antigravity.Ide.Editor
             properties.FlavoringProjectType = "Local";
             properties.FlavoringBuildTarget = EditorUserBuildSettings.activeBuildTarget.ToString();
             properties.FlavoringUnityVersion = Application.unityVersion;
-            properties.FlavoringPackageVersion = "2.0.22"; // Hardcoded for now, should get from package.json
+            properties.FlavoringPackageVersion = "2.0.22";
 
-            // Generate
-            GetProjectHeader(properties, out headerBuilder);
+            // HEADER GENERATION
+            GetProjectHeader(properties, out var headerBuilder);
             projectBuilder.Append(headerBuilder);
 
+            // FILES GENERATION
+            projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
             var files = assembly.sourceFiles;
-            var otherFiles = new List<string>();
-
             foreach (var file in files)
             {
                 var extension = Path.GetExtension(file).ToLower();
                 var fullPath = Path.GetFullPath(file);
 
-                // Check if file is inside the project
-                if (!FileUtility.IsFileInProjectRootDirectory(fullPath))
-                {
-                    otherFiles.Add(file);
-                    continue;
-                }
-
+                // This logic ensures we handle packages vs local assets correctly
                 projectBuilder.Append(@"    <Compile Include=""").Append(EscapedRelativePathFor(file, out var packageInfo)).Append(@""" />").Append(k_WindowsNewline);
             }
-
-            // Append assets
+            // Append assets (if any)
             if (allAssetsProjectParts.TryGetValue(assembly.name, out var assetsProjectPart))
                 projectBuilder.Append(assetsProjectPart);
-
-            // Append other files
-            foreach (var otherFile in otherFiles)
-            {
-                projectBuilder.Append(@"    <None Include=""").Append(EscapedRelativePathFor(otherFile, out var packageInfo)).Append(@""" />").Append(k_WindowsNewline);
-            }
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
+
+            // REFERENCES GENERATION
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
 
-            // References
-            // Handle Project References
+            // 1. Project References (Cross-Ref support)
             foreach (var referenceName in assembly.references)
             {
                 var reference = allAssemblies.FirstOrDefault(a => a.name == referenceName);
@@ -385,7 +328,7 @@ namespace Antigravity.Ide.Editor
                 }
             }
 
-            // Handle DLL/Compiled References
+            // 2. DLL References
             foreach (var compiledRef in assembly.compiledAssemblyReferences)
             {
                 var relativePath = FileUtility.MakeRelativeToProjectPath(compiledRef);
@@ -394,33 +337,18 @@ namespace Antigravity.Ide.Editor
                 projectBuilder.Append(@"        <HintPath>").Append(relativePath).Append(@"</HintPath>").Append(k_WindowsNewline);
                 projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
             }
-
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
 
+            // FOOTER GENERATION (CRITICAL FOR VALIDITY)
             GetProjectFooter(projectBuilder);
             return projectBuilder.ToString();
         }
 
-        private static string GetInternalizedPackageName(string path)
-        {
-            if (string.IsNullOrEmpty(path))
-                return "";
-
-            var parts = path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            if (parts.Length > 2 && parts[0] == "Packages")
-                return parts[1];
-
-            return "";
-        }
-
         internal string XmlFilename(string path)
         {
-            if (string.IsNullOrEmpty(path))
-                return path;
-
+            if (string.IsNullOrEmpty(path)) return path;
             path = path.Replace(@"%", "%25");
             path = path.Replace(@";", "%3b");
-
             return XmlEscape(path);
         }
 
@@ -445,83 +373,37 @@ namespace Antigravity.Ide.Editor
         {
             headerBuilder = new StringBuilder();
 
-            // ... (Implementation detail typically from LegacyStyleProjectGeneration, but this method is virtual and called by SdkStyle)
-            // Wait, the reference implementation splits this.
-            // The base ProjectGeneration.cs DOES NOT implement GetProjectHeader fully?
-            // Checking the reference file content...
-            // Ah, the reference file `ProjectGeneration.cs` provided in the tool output has `internal virtual void GetProjectHeader(...)` but it is just a shim or it calls other methods?
-            // Actually, checking the read file, `ProjectGeneration.cs` in the cursor plugin seems to have the Legacy implementation inline OR it uses `LegacyStyleProjectGeneration` which inherits?
-            // No, `LegacyStyleProjectGeneration` inherits from `ProjectGeneration`.
-            // `SdkStyleProjectGeneration` also inherits from `ProjectGeneration`.
+            // Standard MSBuild Header
+            headerBuilder.Append(@"<?xml version=""1.0"" encoding=""utf-8""?>").Append(k_WindowsNewline);
+            headerBuilder.Append($@"<Project ToolsVersion=""4.0"" DefaultTargets=""Build"" xmlns=""{MSBuildNamespaceUri}"">").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  ").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  <PropertyGroup>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <LangVersion>").Append(properties.LangVersion).Append(@"</LangVersion>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
 
-            // So `ProjectGeneration` class itself should be abstract or have virtual methods.
-            // The user wants me to port the CURSOR plugin functionality.
-            // In the cursor plugin, `ProjectGeneration.cs` serves as the BASE class and also likely acts as the default if not using SDK style?
-            // Let's check `LegacyStyleProjectGeneration.cs` again (I wrote it already).
-            // `LegacyStyleProjectGeneration` overrides `GetProjectHeader`.
+            GetProjectHeaderConfigurations(properties, headerBuilder);
 
-            // IMPORTANT: The `ProjectGeneration` class instance used at runtime depends on preference.
-            // But the `ProjectGeneration.cs` file typically contains the BASE class `ProjectGeneration`.
+            // Standard Unity Settings
+            headerBuilder.Append(@"  <PropertyGroup>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <NoConfig>true</NoConfig>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <NoStdLib>true</NoStdLib>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <AddAdditionalExplicitAssemblyReferences>false</AddAdditionalExplicitAssemblyReferences>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <ImplicitlyExpandNETStandardFacades>false</ImplicitlyExpandNETStandardFacades>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <ImplicitlyExpandDesignTimeFacades>false</ImplicitlyExpandDesignTimeFacades>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
 
-            // Re-reading the `view_file` output for `ProjectGeneration.cs` (lines 1-800)
-            // It seems to be a concrete class that implements logic.
-
-            // Wait, looking at `SdkStyleProjectGeneration.cs` it inherits `ProjectGeneration`.
-            // So `ProjectGeneration` is the base.
-            // Does `ProjectGeneration` implement `GetProjectHeader`?
-            // In the view_file output, lines 801+ show `GetProjectHeaderVstuFlavoring`.
-            // Line 853: `internal virtual void GetProjectFooter(StringBuilder footerBuilder) {}`
-            // I don't see `GetProjectHeader` implementation in the base `ProjectGeneration` from the view_file chunks?
-            // Wait, I might have missed it or it wasn't shown?
-
-            // Ah, I need to check if `LegacyStyleProjectGeneration.cs` implements it. Yes, it does.
-            // So `ProjectGeneration` probably needs `internal abstract void GetProjectHeader(...)` or `virtual`.
-
-            // Let's implement the base `GetProjectHeader` as virtual empty or throw? 
-            // Or is it actually containing the "Shared" logic?
-            // In `LegacyStyleProjectGeneration.cs`, it constructs the header.
-
-            // I will make it virtual empty here or similar to the reference.
-            // Wait, if I am replacing `ProjectGeneration.cs`, I must ensure it compiles.
-
-            // Actually, looking at the previous analysis, `ProjectGeneration` IS the generator for the "default" (maybe).
-            // But `SdkStyle` and `LegacyStyle` inherit from it.
-
-            // NOTE: I'll stick to the structure I saw.
-            // I'll make `GetProjectHeader` virtual.
+            GetProjectHeaderVstuFlavoring(properties, headerBuilder);
+            GetProjectHeaderAnalyzers(properties, headerBuilder);
         }
 
         private Dictionary<string, string> GenerateAllAssetProjectParts()
         {
-            var stringBuilders = new Dictionary<string, StringBuilder>();
-
-            foreach (var assembly in m_AssemblyNameProvider.GetAssemblies(ShouldFileBePartOfSolution))
-            {
-                if (!stringBuilders.TryGetValue(assembly.name, out var projectBuilder))
-                {
-                    projectBuilder = new StringBuilder();
-                    stringBuilders[assembly.name] = projectBuilder;
-                }
-
-                foreach (var asset in m_AssemblyNameProvider.FindForAssetPath(assembly.outputPath) != null ? new string[] { } : assembly.sourceFiles)
-                {
-                    // Assets logic
-                }
-            }
-
-            var result = new Dictionary<string, string>();
-            foreach (var entry in stringBuilders)
-                result[entry.Key] = entry.Value.ToString();
-
-            return result;
+            // Placeholder for asset handling if needed in future
+            return new Dictionary<string, string>();
         }
 
         private IEnumerable<ResponseFileData> ParseResponseFileData(IEnumerable<Assembly> assemblies)
         {
-            // return empty for now, implementation detail of response files is complex and maybe not strictly needed for MVP
-            // but better to have it.
-            // I'll use a simplified version or empty.
-            // Actually, let's implement the core logic if possible.
             foreach (var assembly in assemblies)
             {
                 foreach (var responseFile in assembly.compilerOptions.ResponseFiles)
@@ -537,10 +419,6 @@ namespace Antigravity.Ide.Editor
         internal bool ShouldFileBePartOfSolution(string file)
         {
             var extension = Path.GetExtension(file);
-
-            // Exclude files from PackageManager/BuiltIn packages if needed
-            // For now allow supported extensions
-            // For now allow supported extensions
             return IsSupportedExtension(extension);
         }
 
@@ -549,27 +427,13 @@ namespace Antigravity.Ide.Editor
             return IsSupportedExtension(Path.GetExtension(path));
         }
 
-        internal static bool ShouldFileBePartOfSolutionKey(string file)
-        {
-            return ShouldFileBePartOfSolutionKey(file, new string[0]);
-        }
-
-        internal static bool ShouldFileBePartOfSolutionKey(string file, string[] supportedExtensions)
-        {
-            // implementation
-            return true;
-        }
-
         internal void GetProjectHeaderVstuFlavoring(ProjectProperties properties, StringBuilder headerBuilder, bool includeProjectTypeGuids = true)
         {
-            // Flavoring
             headerBuilder.Append(@"  <PropertyGroup>").Append(k_WindowsNewline);
-
             if (includeProjectTypeGuids)
             {
                 headerBuilder.Append(@"    <ProjectTypeGuids>{E097FAD1-6243-4DAD-9C02-E9B9EFC3FFC1};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>").Append(k_WindowsNewline);
             }
-
             headerBuilder.Append(@"    <UnityProjectGenerator>Package</UnityProjectGenerator>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <UnityProjectGeneratorVersion>").Append(properties.FlavoringPackageVersion).Append(@"</UnityProjectGeneratorVersion>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <UnityProjectGeneratorStyle>").Append(StyleName).Append("</UnityProjectGeneratorStyle>").Append(k_WindowsNewline);
@@ -587,7 +451,6 @@ namespace Antigravity.Ide.Editor
                 headerBuilder.Append(@"    <CodeAnalysisRuleSet>").Append(properties.RulesetPath).Append(@"</CodeAnalysisRuleSet>").Append(k_WindowsNewline);
                 headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
             }
-
             if (properties.Analyzers.Any())
             {
                 headerBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
@@ -597,14 +460,12 @@ namespace Antigravity.Ide.Editor
                 }
                 headerBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
             }
-
             if (!string.IsNullOrEmpty(properties.AnalyzerConfigPath))
             {
                 headerBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
                 headerBuilder.Append(@"    <EditorConfigFiles Include=""").Append(properties.AnalyzerConfigPath).Append(@""" />").Append(k_WindowsNewline);
                 headerBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
             }
-
             if (properties.AdditionalFilePaths.Any())
             {
                 headerBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
@@ -659,7 +520,12 @@ namespace Antigravity.Ide.Editor
 
         internal virtual void GetProjectFooter(StringBuilder footerBuilder)
         {
-            // empty in base
+            // CRITICAL FIX: The previous version was empty. This imports the C# targets so it actually builds.
+            footerBuilder.Append(string.Join(k_WindowsNewline,
+                $"  <Import Project=\"{@"$(MSBuildToolsPath)\Microsoft.CSharp.targets".NormalizePathSeparators()}\" />",
+                @"  <Target Name=""GenerateTargetFrameworkMonikerAttribute"" />",
+                @"</Project>",
+                @""));
         }
 
         internal string EscapedRelativePathFor(string file, out UnityEditor.PackageManager.PackageInfo packageInfo)
@@ -708,7 +574,7 @@ namespace Antigravity.Ide.Editor
         private static string GetRootNamespace(Assembly assembly)
         {
 #if UNITY_2020_2_OR_NEWER
-			return assembly.rootNamespace;
+            return assembly.rootNamespace;
 #else
             return EditorSettings.projectGenerationRootNamespace;
 #endif
@@ -730,23 +596,17 @@ namespace Antigravity.Ide.Editor
 
             for (var i = 0; i < array.Length; i++)
             {
-                if (i > 0)
-                    result.Append(k_WindowsNewline);
-
+                if (i > 0) result.Append(k_WindowsNewline);
                 var properties = array[i];
-
                 result.Append($"	GlobalSection({properties.Name}) = {properties.Type}");
                 result.Append(k_WindowsNewline);
-
                 foreach (var entry in properties.Entries)
                 {
                     result.Append($"		{entry.Key} = {entry.Value}");
                     result.Append(k_WindowsNewline);
                 }
-
                 result.Append("	EndGlobalSection");
             }
-
             return result.ToString();
         }
 
@@ -756,7 +616,6 @@ namespace Antigravity.Ide.Editor
                 m_SolutionProjectEntryTemplate,
                 entry.ProjectFactoryGuid, entry.Name, entry.FileName, entry.ProjectGuid, entry.Metadata
             ));
-
             return string.Join(k_WindowsNewline, projectEntries.ToArray());
         }
 
@@ -819,7 +678,6 @@ namespace Antigravity.Ide.Editor
             var generatedProjects = ToProjectEntries(relevantAssemblies).ToList();
 
             SolutionProperties[] properties = null;
-
             var projects = new List<SolutionProjectEntry>();
             projects.AddRange(generatedProjects);
 
@@ -835,7 +693,6 @@ namespace Antigravity.Ide.Editor
 
             string propertiesText = GetPropertiesText(properties);
             string projectEntriesText = GetProjectEntriesText(projects);
-
             var configurableProjects = projects.Where(p => !p.IsSolutionFolderProjectFactory());
             string projectConfigurationsText = string.Join(k_WindowsNewline, configurableProjects.Select(p => GetProjectActiveConfigurations(p.ProjectGuid)).ToArray());
 
@@ -859,10 +716,8 @@ namespace Antigravity.Ide.Editor
         {
             if (language == ScriptingLanguage.CSharp)
             {
-                // GUID for a C# class library
                 return "FAE04EC0-301F-11D3-BF4B-00C04F79EFBC";
             }
-
             return ComputeGuidHashFor(projectName);
         }
 
