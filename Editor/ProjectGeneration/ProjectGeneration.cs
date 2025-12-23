@@ -107,20 +107,14 @@ namespace Antigravity.Ide.Editor
             return false;
         }
 
-        private bool HasFilesBeenModified(IEnumerable<string> affectedFiles, IEnumerable<string> reimportedFiles)
+        internal virtual bool ShouldSyncOn(IEnumerable<string> affectedFiles, IEnumerable<string> reimportedFiles)
         {
-            return affectedFiles.Any(ShouldFileBePartOfSolution) || reimportedFiles.Any(ShouldSyncOnReimportedAsset);
+            return (affectedFiles.Any(ShouldFileBePartOfSolution) || reimportedFiles.Any(ShouldSyncOnReimportedAsset));
         }
 
         private static bool ShouldSyncOnReimportedAsset(string asset)
         {
             return k_ReimportSyncExtensions.Contains(new FileInfo(asset).Extension);
-        }
-
-        internal virtual bool ShouldSyncOn(IEnumerable<string> affectedFiles, IEnumerable<string> reimportedFiles)
-        {
-            if (reimportedFiles.Any()) return true;
-            return affectedFiles.Any();
         }
 
         public void Sync()
@@ -158,20 +152,11 @@ namespace Antigravity.Ide.Editor
             }
         }
 
-        public bool HasSolutionBeenGenerated()
-        {
-            return m_FileIOProvider.Exists(SolutionFile());
-        }
+        public bool HasSolutionBeenGenerated() => m_FileIOProvider.Exists(SolutionFile());
 
-        public string SolutionFile()
-        {
-            return Path.Combine(ProjectDirectory, $"{m_ProjectName}.sln");
-        }
+        public string SolutionFile() => Path.Combine(ProjectDirectory, $"{m_ProjectName}.sln");
 
-        internal string ProjectFile(Assembly assembly)
-        {
-            return Path.Combine(ProjectDirectory, $"{assembly.name}.csproj");
-        }
+        internal string ProjectFile(Assembly assembly) => Path.Combine(ProjectDirectory, $"{assembly.name}.csproj");
 
         private void SyncProject(Assembly assembly, Dictionary<string, string> allAssetsProjectParts, IEnumerable<ResponseFileData> responseFilesData, List<Assembly> allAssemblies)
         {
@@ -190,10 +175,39 @@ namespace Antigravity.Ide.Editor
             m_FileIOProvider.WriteAllText(filename, newContents);
         }
 
-        // --------------------------------------------------------------------------------------------------
-        // COMPATIBILITY FIX: RESTORED VIRTUAL METHODS SO SUBCLASSES DON'T BREAK
-        // --------------------------------------------------------------------------------------------------
-        
+        // ====================================================================================
+        // HELPERS RESTORED TO FIX COMPILATION ERRORS
+        // ====================================================================================
+
+        internal static string GetProjectExtension()
+        {
+            return ".csproj";
+        }
+
+        internal void GetProjectHeaderVstuFlavoring(ProjectProperties properties, StringBuilder headerBuilder)
+        {
+            headerBuilder.Append(@"  <PropertyGroup>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <UnityProjectGenerator>Package</UnityProjectGenerator>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <UnityProjectGeneratorVersion>2.0.22</UnityProjectGeneratorVersion>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <UnityProjectGeneratorStyle>").Append(StyleName).Append("</UnityProjectGeneratorStyle>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
+        }
+
+        internal void GetProjectHeaderAnalyzers(ProjectProperties properties, StringBuilder headerBuilder)
+        {
+            if (properties.Analyzers.Any())
+            {
+                headerBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
+                foreach (var analyzer in properties.Analyzers)
+                {
+                    headerBuilder.Append(@"    <Analyzer Include=""").Append(analyzer).Append(@""" />").Append(k_WindowsNewline);
+                }
+                headerBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
+            }
+        }
+
+        // ====================================================================================
+
         internal virtual string StyleName => "Legacy";
 
         internal virtual void GetProjectHeader(ProjectProperties properties, out StringBuilder headerBuilder)
@@ -222,30 +236,30 @@ namespace Antigravity.Ide.Editor
 
         internal virtual void GetProjectHeaderConfigurations(ProjectProperties properties, StringBuilder headerBuilder)
         {
-             headerBuilder.Append(@"  <PropertyGroup Condition="" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' "">").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <DebugSymbols>true</DebugSymbols>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <DebugType>full</DebugType>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <Optimize>false</Optimize>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <OutputPath>").Append(properties.OutputPath).Append(@"</OutputPath>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <DefineConstants>").Append(string.Join(";", properties.Defines.Concat(new[] { "DEBUG", "TRACE" }).Distinct())).Append(@"</DefineConstants>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <ErrorReport>prompt</ErrorReport>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <WarningLevel>4</WarningLevel>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <NoWarn>0169</NoWarn>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <AllowUnsafeBlocks>").Append(properties.Unsafe.ToString().ToLower()).Append(@"</AllowUnsafeBlocks>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  <PropertyGroup Condition="" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' "">").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <DebugSymbols>true</DebugSymbols>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <DebugType>full</DebugType>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <Optimize>false</Optimize>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <OutputPath>").Append(properties.OutputPath).Append(@"</OutputPath>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <DefineConstants>").Append(string.Join(";", properties.Defines.Concat(new[] { "DEBUG", "TRACE" }).Distinct())).Append(@"</DefineConstants>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <ErrorReport>prompt</ErrorReport>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <WarningLevel>4</WarningLevel>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <NoWarn>0169</NoWarn>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <AllowUnsafeBlocks>").Append(properties.Unsafe.ToString().ToLower()).Append(@"</AllowUnsafeBlocks>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
 
-             headerBuilder.Append(@"  <PropertyGroup Condition="" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' "">").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <DebugType>pdbonly</DebugType>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <Optimize>true</Optimize>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <OutputPath>").Append(properties.OutputPath).Append(@"</OutputPath>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <DefineConstants>").Append(string.Join(";", properties.Defines.Concat(new[] { "TRACE" }).Distinct())).Append(@"</DefineConstants>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <ErrorReport>prompt</ErrorReport>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <WarningLevel>4</WarningLevel>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <NoWarn>0169</NoWarn>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"    <AllowUnsafeBlocks>").Append(properties.Unsafe.ToString().ToLower()).Append(@"</AllowUnsafeBlocks>").Append(k_WindowsNewline);
-             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  <PropertyGroup Condition="" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' "">").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <DebugType>pdbonly</DebugType>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <Optimize>true</Optimize>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <OutputPath>").Append(properties.OutputPath).Append(@"</OutputPath>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <DefineConstants>").Append(string.Join(";", properties.Defines.Concat(new[] { "TRACE" }).Distinct())).Append(@"</DefineConstants>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <ErrorReport>prompt</ErrorReport>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <WarningLevel>4</WarningLevel>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <NoWarn>0169</NoWarn>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <AllowUnsafeBlocks>").Append(properties.Unsafe.ToString().ToLower()).Append(@"</AllowUnsafeBlocks>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
         }
-        
+
         internal virtual void AppendProjectReference(Assembly assembly, Assembly reference, StringBuilder projectBuilder)
         {
             var guid = ProjectGuid(reference);
@@ -261,8 +275,6 @@ namespace Antigravity.Ide.Editor
             footerBuilder.Append(@"  <Target Name=""GenerateTargetFrameworkMonikerAttribute"" />").Append(k_WindowsNewline);
             footerBuilder.Append(@"</Project>").Append(k_WindowsNewline);
         }
-
-        // --------------------------------------------------------------------------------------------------
 
         internal string ProjectText(Assembly assembly, Dictionary<string, string> allAssetsProjectParts, IEnumerable<ResponseFileData> responseFilesData, List<Assembly> allAssemblies)
         {
@@ -289,8 +301,7 @@ namespace Antigravity.Ide.Editor
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
 
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
-            
-            // 1. Project References
+
             foreach (var referenceName in assembly.references)
             {
                 var reference = allAssemblies.FirstOrDefault(a => a.name == referenceName);
@@ -300,10 +311,9 @@ namespace Antigravity.Ide.Editor
                 }
             }
 
-            // 2. Compiled References - FORCED ABSOLUTE PATHS TO FIX VS CODE LOADING
+            // CRITICAL FIX: Absolute paths for compiled references
             foreach (var compiledRef in assembly.compiledAssemblyReferences)
             {
-                // FIX: Use Absolute paths for all DLLs
                 string fullPath = Path.GetFullPath(compiledRef).Replace('\\', '/');
                 string name = Path.GetFileNameWithoutExtension(fullPath);
 
@@ -346,21 +356,21 @@ namespace Antigravity.Ide.Editor
         internal string ProjectGuid(string assemblyName) => m_GUIDGenerator.ProjectGuid(m_ProjectName, assemblyName);
         internal string ProjectGuid(Assembly assembly) => ProjectGuid(m_AssemblyNameProvider.GetAssemblyName(assembly.outputPath, assembly.name));
         private string SolutionGuid(Assembly assembly) => m_GUIDGenerator.SolutionGuid(m_ProjectName, ScriptingLanguageFor(assembly));
-        
+
         private static string GetRootNamespace(Assembly assembly)
         {
-            #if UNITY_2020_2_OR_NEWER
+#if UNITY_2020_2_OR_NEWER
             return assembly.rootNamespace;
-            #else
+#else
             return EditorSettings.projectGenerationRootNamespace;
-            #endif
+#endif
         }
 
         private void SyncSolution(IEnumerable<Assembly> assemblies)
         {
             var solutionFile = SolutionFile();
             var relevantAssemblies = assemblies.Where(i => ScriptingLanguage.CSharp == ScriptingLanguageFor(i));
-            
+
             var projectEntries = new StringBuilder();
             var projectConfigurations = new StringBuilder();
 
@@ -368,7 +378,7 @@ namespace Antigravity.Ide.Editor
             {
                 var guid = ProjectGuid(assembly);
                 var filename = Path.GetFileName(ProjectFile(assembly));
-                
+
                 projectEntries.AppendFormat(m_SolutionProjectEntryTemplate, SolutionGuid(assembly), assembly.name, filename, guid, k_WindowsNewline).Append(k_WindowsNewline);
                 projectConfigurations.AppendFormat(m_SolutionProjectConfigurationTemplate, guid).Append(k_WindowsNewline);
             }
