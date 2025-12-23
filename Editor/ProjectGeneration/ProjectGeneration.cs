@@ -306,8 +306,7 @@ namespace Antigravity.Ide.Editor
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
 
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
-
-            // Track handled project references to avoid duplicates
+            
             var projectReferences = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var referenceName in assembly.references)
@@ -322,24 +321,20 @@ namespace Antigravity.Ide.Editor
 
             foreach (var compiledRef in assembly.compiledAssemblyReferences)
             {
-                // Skip if this reference matches a project reference we already added
                 var referenceName = Path.GetFileNameWithoutExtension(compiledRef);
                 if (projectReferences.Contains(referenceName))
                     continue;
 
                 string relativePath = FileUtility.MakeRelativeToProjectPath(compiledRef);
-
-                // FALLBACK: Use absolute path if relative fails (e.g. UnityEngine.dll)
+                
                 if (string.IsNullOrEmpty(relativePath))
                 {
                     relativePath = compiledRef;
                 }
-
-                // IMPORTANT: Normalize slashes and Escape for XML
-                // VS Code/Cursor sometimes chokes on mixed slashes or unescaped chars in HintPath
+                
                 relativePath = relativePath.Replace('\\', '/');
-
-                projectBuilder.Append(@"    <Reference Include=""").Append(referenceName).Append(@""">").Append(k_WindowsNewline);
+                
+                projectBuilder.Append(@"    <Reference Include=""").Append(XmlFilename(referenceName)).Append(@""">").Append(k_WindowsNewline);
                 projectBuilder.Append(@"        <HintPath>").Append(XmlFilename(relativePath)).Append(@"</HintPath>").Append(k_WindowsNewline);
                 projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
             }

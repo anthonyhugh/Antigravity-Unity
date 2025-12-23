@@ -29,8 +29,6 @@ namespace Antigravity.Ide.Editor
             "Unity",
         };
 
-        // FIX: I removed "ProjectReferences", "AssemblyReferences", and "ReferenceManager..." 
-        // from this list. Previously, they were telling VS Code to ignore your references.
         internal static readonly string[] UnsupportedCapabilities = new string[]
         {
             "LaunchProfiles",
@@ -44,9 +42,7 @@ namespace Antigravity.Ide.Editor
         {
             headerBuilder = new StringBuilder();
 
-            headerBuilder.Append(@"<Project ToolsVersion=""Current"">").Append(k_WindowsNewline);
-            headerBuilder.Append(@"  ").Append(k_WindowsNewline);
-
+            headerBuilder.Append(@"<Project Sdk=""Microsoft.NET.Sdk"">").Append(k_WindowsNewline);
             headerBuilder.Append(@"  <PropertyGroup>").Append(k_WindowsNewline);
             headerBuilder.Append($"    <BaseIntermediateOutputPath>{@"Temp\obj\$(Configuration)\$(MSBuildProjectName)".NormalizePathSeparators()}</BaseIntermediateOutputPath>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>").Append(k_WindowsNewline);
@@ -67,7 +63,12 @@ namespace Antigravity.Ide.Editor
             headerBuilder.Append(@"    <AppDesignerFolder>Properties</AppDesignerFolder>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <AssemblyName>").Append(properties.AssemblyName).Append(@"</AssemblyName>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <ProjectGuid>{").Append(properties.ProjectGuid).Append(@"}</ProjectGuid>").Append(k_WindowsNewline);
-            headerBuilder.Append(@"    <TargetFramework>netstandard2.1</TargetFramework>").Append(k_WindowsNewline);
+            
+            // CRITICAL FIX: Use net471 to match Unity Editor environment. 
+            // netstandard2.1 fails to load system references correctly in VS Code for Unity projects.
+            headerBuilder.Append(@"    <TargetFramework>net471</TargetFramework>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <DisableImplicitFrameworkReferences>false</DisableImplicitFrameworkReferences>").Append(k_WindowsNewline);
+            
             headerBuilder.Append(@"    <BaseDirectory>.</BaseDirectory>").Append(k_WindowsNewline);
             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
 
@@ -95,7 +96,6 @@ namespace Antigravity.Ide.Editor
 
         internal static void GetCapabilityBlock(StringBuilder footerBuilder, string import, string attribute, string[] capabilities)
         {
-            footerBuilder.Append($@"  <Import Project=""{import}"" Sdk=""Microsoft.NET.Sdk"" />").Append(k_WindowsNewline);
             footerBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
             foreach (var capability in capabilities)
             {
