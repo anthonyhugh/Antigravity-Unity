@@ -64,11 +64,16 @@ namespace Antigravity.Ide.Editor
             headerBuilder.Append(@"    <AssemblyName>").Append(properties.AssemblyName).Append(@"</AssemblyName>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <ProjectGuid>{").Append(properties.ProjectGuid).Append(@"}</ProjectGuid>").Append(k_WindowsNewline);
 
-            // FIX: Target netstandard2.1 to match Unity packages.
-            // FIX: Disable implicit refs so we can manually add Unity's System DLLs without conflicts.
-            headerBuilder.Append(@"    <TargetFramework>netstandard2.1</TargetFramework>").Append(k_WindowsNewline);
-            headerBuilder.Append(@"    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>").Append(k_WindowsNewline);
+            // FIX: Target net471 (NET Framework 4.7.1) to match Unity Editor.
+            // Using netstandard2.1 often breaks Editor scripts as they depend on full framework features.
+            headerBuilder.Append(@"    <TargetFramework>net471</TargetFramework>").Append(k_WindowsNewline);
 
+            // FIX: Removed DisableImplicitFrameworkReferences or set to false.
+            // We NEED standard libraries (System, mscorlib) for anything to load.
+            headerBuilder.Append(@"    <DisableImplicitFrameworkReferences>false</DisableImplicitFrameworkReferences>").Append(k_WindowsNewline);
+
+            // Helpful properties for Unity handling
+            headerBuilder.Append(@"    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <BaseDirectory>.</BaseDirectory>").Append(k_WindowsNewline);
             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
 
@@ -85,6 +90,7 @@ namespace Antigravity.Ide.Editor
             projectBuilder.Append(@"    <ProjectReference Include=""").Append(referenceName).Append(GetProjectExtension()).Append(@""">").Append(k_WindowsNewline);
             projectBuilder.Append(@"        <Project>{").Append(projectReferenceGuid).Append(@"}</Project>").Append(k_WindowsNewline);
             projectBuilder.Append(@"        <Name>").Append(referenceName).Append(@"</Name>").Append(k_WindowsNewline);
+            projectBuilder.Append(@"        <Private>false</Private>").Append(k_WindowsNewline); // Prevent copying references locally which can confuse Unity
             projectBuilder.Append(@"    </ProjectReference>").Append(k_WindowsNewline);
         }
 
