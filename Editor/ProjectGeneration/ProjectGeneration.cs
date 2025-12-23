@@ -33,7 +33,6 @@ namespace Antigravity.Ide.Editor
     {
         public const string MSBuildNamespaceUri = "http://schemas.microsoft.com/developer/msbuild/2003";
 
-        // FIX: Ensure we support standard C# extensions
         internal static readonly Dictionary<string, ScriptingLanguage> k_ProjectExtensions = new Dictionary<string, ScriptingLanguage>
         {
             { "cs", ScriptingLanguage.CSharp },
@@ -72,8 +71,6 @@ namespace Antigravity.Ide.Editor
         }
 
         internal static readonly string k_WindowsNewline = "\r\n";
-
-        // FIX: Force version 4.0 which is compatible with Unity's internal Mono
         internal const string k_ToolsVersion = "ToolsVersion=\"4.0\"";
         internal const string k_ProductVersion = "10.0.20506";
         internal const string k_BaseDirectory = ".";
@@ -130,8 +127,6 @@ namespace Antigravity.Ide.Editor
         {
             var assemblies = m_AssemblyNameProvider.GetAssemblies(ShouldFileBePartOfSolution);
             var allAssetProjectParts = GenerateAllAssetProjectParts();
-
-            // FIX: Simplified response file parsing to avoid IO errors
             var responseFilesData = ParseResponseFileData(assemblies).ToList();
 
             var newAssemblies = new List<Assembly>();
@@ -195,6 +190,80 @@ namespace Antigravity.Ide.Editor
             m_FileIOProvider.WriteAllText(filename, newContents);
         }
 
+        // --------------------------------------------------------------------------------------------------
+        // COMPATIBILITY FIX: RESTORED VIRTUAL METHODS SO SUBCLASSES DON'T BREAK
+        // --------------------------------------------------------------------------------------------------
+        
+        internal virtual string StyleName => "Legacy";
+
+        internal virtual void GetProjectHeader(ProjectProperties properties, out StringBuilder headerBuilder)
+        {
+            headerBuilder = new StringBuilder();
+            headerBuilder.Append(@"<?xml version=""1.0"" encoding=""utf-8""?>").Append(k_WindowsNewline);
+            headerBuilder.Append($@"<Project ToolsVersion=""4.0"" DefaultTargets=""Build"" xmlns=""{MSBuildNamespaceUri}"">").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  <PropertyGroup>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <LangVersion>").Append(properties.LangVersion).Append(@"</LangVersion>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <Configuration Condition="" '$(Configuration)' == '' "">Debug</Configuration>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <Platform Condition="" '$(Platform)' == '' "">AnyCPU</Platform>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <ProductVersion>10.0.20506</ProductVersion>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <SchemaVersion>2.0</SchemaVersion>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <RootNamespace>").Append(properties.RootNamespace).Append(@"</RootNamespace>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <ProjectGuid>{").Append(properties.ProjectGuid).Append(@"}</ProjectGuid>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <OutputType>Library</OutputType>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <AppDesignerFolder>Properties</AppDesignerFolder>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <AssemblyName>").Append(properties.AssemblyName).Append(@"</AssemblyName>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <FileAlignment>512</FileAlignment>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <BaseDirectory>.</BaseDirectory>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
+
+            GetProjectHeaderConfigurations(properties, headerBuilder);
+        }
+
+        internal virtual void GetProjectHeaderConfigurations(ProjectProperties properties, StringBuilder headerBuilder)
+        {
+             headerBuilder.Append(@"  <PropertyGroup Condition="" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' "">").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <DebugSymbols>true</DebugSymbols>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <DebugType>full</DebugType>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <Optimize>false</Optimize>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <OutputPath>").Append(properties.OutputPath).Append(@"</OutputPath>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <DefineConstants>").Append(string.Join(";", properties.Defines.Concat(new[] { "DEBUG", "TRACE" }).Distinct())).Append(@"</DefineConstants>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <ErrorReport>prompt</ErrorReport>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <WarningLevel>4</WarningLevel>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <NoWarn>0169</NoWarn>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <AllowUnsafeBlocks>").Append(properties.Unsafe.ToString().ToLower()).Append(@"</AllowUnsafeBlocks>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
+
+             headerBuilder.Append(@"  <PropertyGroup Condition="" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' "">").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <DebugType>pdbonly</DebugType>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <Optimize>true</Optimize>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <OutputPath>").Append(properties.OutputPath).Append(@"</OutputPath>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <DefineConstants>").Append(string.Join(";", properties.Defines.Concat(new[] { "TRACE" }).Distinct())).Append(@"</DefineConstants>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <ErrorReport>prompt</ErrorReport>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <WarningLevel>4</WarningLevel>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <NoWarn>0169</NoWarn>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"    <AllowUnsafeBlocks>").Append(properties.Unsafe.ToString().ToLower()).Append(@"</AllowUnsafeBlocks>").Append(k_WindowsNewline);
+             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
+        }
+        
+        internal virtual void AppendProjectReference(Assembly assembly, Assembly reference, StringBuilder projectBuilder)
+        {
+            var guid = ProjectGuid(reference);
+            projectBuilder.Append(@"    <ProjectReference Include=""").Append(reference.name).Append(@".csproj"">").Append(k_WindowsNewline);
+            projectBuilder.Append(@"        <Project>{").Append(guid).Append(@"}</Project>").Append(k_WindowsNewline);
+            projectBuilder.Append(@"        <Name>").Append(reference.name).Append(@"</Name>").Append(k_WindowsNewline);
+            projectBuilder.Append(@"    </ProjectReference>").Append(k_WindowsNewline);
+        }
+
+        internal virtual void GetProjectFooter(StringBuilder footerBuilder)
+        {
+            footerBuilder.Append(@"  <Import Project=""$(MSBuildToolsPath)\Microsoft.CSharp.targets"" />").Append(k_WindowsNewline);
+            footerBuilder.Append(@"  <Target Name=""GenerateTargetFrameworkMonikerAttribute"" />").Append(k_WindowsNewline);
+            footerBuilder.Append(@"</Project>").Append(k_WindowsNewline);
+        }
+
+        // --------------------------------------------------------------------------------------------------
+
         internal string ProjectText(Assembly assembly, Dictionary<string, string> allAssetsProjectParts, IEnumerable<ResponseFileData> responseFilesData, List<Assembly> allAssemblies)
         {
             var projectBuilder = new StringBuilder();
@@ -209,51 +278,9 @@ namespace Antigravity.Ide.Editor
                 Unsafe = assembly.compilerOptions.AllowUnsafeCode
             };
 
-            // HEADER GENERATION (Legacy)
-            projectBuilder.Append(@"<?xml version=""1.0"" encoding=""utf-8""?>").Append(k_WindowsNewline);
-            projectBuilder.Append($@"<Project ToolsVersion=""4.0"" DefaultTargets=""Build"" xmlns=""{MSBuildNamespaceUri}"">").Append(k_WindowsNewline);
-            projectBuilder.Append(@"  <PropertyGroup>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <LangVersion>").Append(properties.LangVersion).Append(@"</LangVersion>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <Configuration Condition="" '$(Configuration)' == '' "">Debug</Configuration>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <Platform Condition="" '$(Platform)' == '' "">AnyCPU</Platform>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <ProductVersion>10.0.20506</ProductVersion>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <SchemaVersion>2.0</SchemaVersion>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <RootNamespace>").Append(properties.RootNamespace).Append(@"</RootNamespace>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <ProjectGuid>{").Append(properties.ProjectGuid).Append(@"}</ProjectGuid>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <OutputType>Library</OutputType>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <AppDesignerFolder>Properties</AppDesignerFolder>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <AssemblyName>").Append(properties.AssemblyName).Append(@"</AssemblyName>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <FileAlignment>512</FileAlignment>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <BaseDirectory>.</BaseDirectory>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
+            GetProjectHeader(properties, out var headerBuilder);
+            projectBuilder.Append(headerBuilder);
 
-            // CONFIGURATION BLOCKS
-            projectBuilder.Append(@"  <PropertyGroup Condition="" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' "">").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <DebugSymbols>true</DebugSymbols>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <DebugType>full</DebugType>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <Optimize>false</Optimize>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <OutputPath>").Append(properties.OutputPath).Append(@"</OutputPath>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <DefineConstants>").Append(string.Join(";", properties.Defines.Concat(new[] { "DEBUG", "TRACE" }).Distinct())).Append(@"</DefineConstants>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <ErrorReport>prompt</ErrorReport>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <WarningLevel>4</WarningLevel>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <NoWarn>0169</NoWarn>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <AllowUnsafeBlocks>").Append(properties.Unsafe.ToString().ToLower()).Append(@"</AllowUnsafeBlocks>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
-
-            // RELEASE BLOCK (Just in case)
-            projectBuilder.Append(@"  <PropertyGroup Condition="" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' "">").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <DebugType>pdbonly</DebugType>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <Optimize>true</Optimize>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <OutputPath>").Append(properties.OutputPath).Append(@"</OutputPath>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <DefineConstants>").Append(string.Join(";", properties.Defines.Concat(new[] { "TRACE" }).Distinct())).Append(@"</DefineConstants>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <ErrorReport>prompt</ErrorReport>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <WarningLevel>4</WarningLevel>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <NoWarn>0169</NoWarn>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    <AllowUnsafeBlocks>").Append(properties.Unsafe.ToString().ToLower()).Append(@"</AllowUnsafeBlocks>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
-
-            // FILES
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
             foreach (var file in assembly.sourceFiles)
             {
@@ -261,29 +288,23 @@ namespace Antigravity.Ide.Editor
             }
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
 
-            // REFERENCES
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
-
-            // 1. Project References (Other Unity Assemblies)
+            
+            // 1. Project References
             foreach (var referenceName in assembly.references)
             {
                 var reference = allAssemblies.FirstOrDefault(a => a.name == referenceName);
                 if (reference != null)
                 {
-                    var guid = ProjectGuid(reference);
-                    projectBuilder.Append(@"    <ProjectReference Include=""").Append(reference.name).Append(@".csproj"">").Append(k_WindowsNewline);
-                    projectBuilder.Append(@"        <Project>{").Append(guid).Append(@"}</Project>").Append(k_WindowsNewline);
-                    projectBuilder.Append(@"        <Name>").Append(reference.name).Append(@"</Name>").Append(k_WindowsNewline);
-                    projectBuilder.Append(@"    </ProjectReference>").Append(k_WindowsNewline);
+                    AppendProjectReference(assembly, reference, projectBuilder);
                 }
             }
 
-            // 2. Compiled References (DLLs) - FORCE ABSOLUTE PATHS
+            // 2. Compiled References - FORCED ABSOLUTE PATHS TO FIX VS CODE LOADING
             foreach (var compiledRef in assembly.compiledAssemblyReferences)
             {
-                string fullPath = Path.GetFullPath(compiledRef);
-                // FIX: Replace backslashes with forward slashes for better XML compatibility
-                fullPath = fullPath.Replace('\\', '/');
+                // FIX: Use Absolute paths for all DLLs
+                string fullPath = Path.GetFullPath(compiledRef).Replace('\\', '/');
                 string name = Path.GetFileNameWithoutExtension(fullPath);
 
                 projectBuilder.Append(@"    <Reference Include=""").Append(XmlFilename(name)).Append(@""">").Append(k_WindowsNewline);
@@ -292,11 +313,7 @@ namespace Antigravity.Ide.Editor
             }
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
 
-            // FOOTER
-            projectBuilder.Append(@"  <Import Project=""$(MSBuildToolsPath)\Microsoft.CSharp.targets"" />").Append(k_WindowsNewline);
-            projectBuilder.Append(@"  <Target Name=""GenerateTargetFrameworkMonikerAttribute"" />").Append(k_WindowsNewline);
-            projectBuilder.Append(@"</Project>").Append(k_WindowsNewline);
-
+            GetProjectFooter(projectBuilder);
             return projectBuilder.ToString();
         }
 
@@ -329,21 +346,21 @@ namespace Antigravity.Ide.Editor
         internal string ProjectGuid(string assemblyName) => m_GUIDGenerator.ProjectGuid(m_ProjectName, assemblyName);
         internal string ProjectGuid(Assembly assembly) => ProjectGuid(m_AssemblyNameProvider.GetAssemblyName(assembly.outputPath, assembly.name));
         private string SolutionGuid(Assembly assembly) => m_GUIDGenerator.SolutionGuid(m_ProjectName, ScriptingLanguageFor(assembly));
-
+        
         private static string GetRootNamespace(Assembly assembly)
         {
-#if UNITY_2020_2_OR_NEWER
+            #if UNITY_2020_2_OR_NEWER
             return assembly.rootNamespace;
-#else
+            #else
             return EditorSettings.projectGenerationRootNamespace;
-#endif
+            #endif
         }
 
         private void SyncSolution(IEnumerable<Assembly> assemblies)
         {
             var solutionFile = SolutionFile();
             var relevantAssemblies = assemblies.Where(i => ScriptingLanguage.CSharp == ScriptingLanguageFor(i));
-
+            
             var projectEntries = new StringBuilder();
             var projectConfigurations = new StringBuilder();
 
@@ -351,7 +368,7 @@ namespace Antigravity.Ide.Editor
             {
                 var guid = ProjectGuid(assembly);
                 var filename = Path.GetFileName(ProjectFile(assembly));
-
+                
                 projectEntries.AppendFormat(m_SolutionProjectEntryTemplate, SolutionGuid(assembly), assembly.name, filename, guid, k_WindowsNewline).Append(k_WindowsNewline);
                 projectConfigurations.AppendFormat(m_SolutionProjectConfigurationTemplate, guid).Append(k_WindowsNewline);
             }
