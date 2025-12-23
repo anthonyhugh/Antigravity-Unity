@@ -187,11 +187,7 @@ namespace Antigravity.Ide.Editor
 
         private bool ShouldGenerateProject()
         {
-            if (!m_AssemblyNameProvider.ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.PlayerAssemblies) &&
-                !m_AssemblyNameProvider.ProjectGenerationFlag.HasFlag(ProjectGenerationFlag.Unknown))
-            {
-                return false;
-            }
+
             return true;
         }
 
