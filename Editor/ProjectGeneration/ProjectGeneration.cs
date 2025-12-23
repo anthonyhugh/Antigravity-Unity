@@ -62,7 +62,6 @@ namespace Antigravity.Ide.Editor
 
         internal static ScriptingLanguage ScriptingLanguageFor(Assembly assembly)
         {
-            // FIX: Check source files directly to avoid version string mismatches
             if (assembly.sourceFiles.Length == 0)
                 return ScriptingLanguage.None;
 
@@ -160,7 +159,6 @@ namespace Antigravity.Ide.Editor
                 newAssemblies.Add(newAssembly);
             }
 
-            // FIX: Force generation regardless of flags
             if (ShouldGenerateProject())
             {
                 Profiler.BeginSample("AntigravityEditor.SyncSolution");
@@ -192,7 +190,6 @@ namespace Antigravity.Ide.Editor
 
         private bool ShouldGenerateProject()
         {
-            // FIX: Always return true to ensure SLN generation
             return true;
         }
 
@@ -309,30 +306,41 @@ namespace Antigravity.Ide.Editor
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
 
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
+
+            // Track handled project references to avoid duplicates
+            var projectReferences = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             foreach (var referenceName in assembly.references)
             {
                 var reference = allAssemblies.FirstOrDefault(a => a.name == referenceName);
                 if (reference != null)
                 {
+                    projectReferences.Add(referenceName);
                     AppendProjectReference(assembly, reference, projectBuilder);
                 }
             }
 
-            // CRITICAL FIX FOR MISSING REFERENCES
             foreach (var compiledRef in assembly.compiledAssemblyReferences)
             {
-                var relativePath = FileUtility.MakeRelativeToProjectPath(compiledRef);
+                // Skip if this reference matches a project reference we already added
+                var referenceName = Path.GetFileNameWithoutExtension(compiledRef);
+                if (projectReferences.Contains(referenceName))
+                    continue;
 
-                // If the file is external (like UnityEngine.dll), MakeRelative returns null.
-                // We must fall back to the absolute path in that case.
+                string relativePath = FileUtility.MakeRelativeToProjectPath(compiledRef);
+
+                // FALLBACK: Use absolute path if relative fails (e.g. UnityEngine.dll)
                 if (string.IsNullOrEmpty(relativePath))
                 {
                     relativePath = compiledRef;
                 }
 
-                var referenceName = Path.GetFileNameWithoutExtension(compiledRef);
+                // IMPORTANT: Normalize slashes and Escape for XML
+                // VS Code/Cursor sometimes chokes on mixed slashes or unescaped chars in HintPath
+                relativePath = relativePath.Replace('\\', '/');
+
                 projectBuilder.Append(@"    <Reference Include=""").Append(referenceName).Append(@""">").Append(k_WindowsNewline);
-                projectBuilder.Append(@"        <HintPath>").Append(relativePath).Append(@"</HintPath>").Append(k_WindowsNewline);
+                projectBuilder.Append(@"        <HintPath>").Append(XmlFilename(relativePath)).Append(@"</HintPath>").Append(k_WindowsNewline);
                 projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
             }
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
