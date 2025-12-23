@@ -1,7 +1,7 @@
 {
   "name": "com.antigravity.ide",
-  "displayName": "Antigravity IDE Support",
-  "version": "1.0.0",
+  "displayName": "Antigravity Unity IDE Support",
+  "version": "1.0.1",
   "unity": "2020.3",
   "description": "Integration for Antigravity IDE as an external script editor for Unity.",
   "keywords": [
