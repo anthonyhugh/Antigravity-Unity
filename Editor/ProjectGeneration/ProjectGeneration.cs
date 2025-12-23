@@ -62,7 +62,15 @@ namespace Antigravity.Ide.Editor
 
         internal static ScriptingLanguage ScriptingLanguageFor(Assembly assembly)
         {
-            return ScriptingLanguageFor(assembly.compilerOptions.languageVersion);
+            // CRITICAL FIX: The original code passed 'languageVersion' (e.g. "latest") 
+            // to a function that expected a file extension (e.g. ".cs").
+            // This caused it to return 'None', filtering out all projects.
+            // We now check the first source file's extension to determine the language.
+            
+            if (assembly.sourceFiles.Length == 0)
+                return ScriptingLanguage.None;
+
+            return ScriptingLanguageFor(Path.GetExtension(assembly.sourceFiles[0]));
         }
 
         internal static ScriptingLanguage ScriptingLanguageFor(string extension)
@@ -156,6 +164,7 @@ namespace Antigravity.Ide.Editor
                 newAssemblies.Add(newAssembly);
             }
 
+            // CRITICAL FIX: Force generation.
             if (ShouldGenerateProject())
             {
                 Profiler.BeginSample("AntigravityEditor.SyncSolution");
@@ -187,7 +196,7 @@ namespace Antigravity.Ide.Editor
 
         private bool ShouldGenerateProject()
         {
-
+            // CRITICAL FIX: Always return true to ensure the solution is generated.
             return true;
         }
 
@@ -303,10 +312,8 @@ namespace Antigravity.Ide.Editor
                 var extension = Path.GetExtension(file).ToLower();
                 var fullPath = Path.GetFullPath(file);
 
-                // This logic ensures we handle packages vs local assets correctly
                 projectBuilder.Append(@"    <Compile Include=""").Append(EscapedRelativePathFor(file, out var packageInfo)).Append(@""" />").Append(k_WindowsNewline);
             }
-            // Append assets (if any)
             if (allAssetsProjectParts.TryGetValue(assembly.name, out var assetsProjectPart))
                 projectBuilder.Append(assetsProjectPart);
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
@@ -314,7 +321,6 @@ namespace Antigravity.Ide.Editor
             // REFERENCES GENERATION
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
 
-            // 1. Project References (Cross-Ref support)
             foreach (var referenceName in assembly.references)
             {
                 var reference = allAssemblies.FirstOrDefault(a => a.name == referenceName);
@@ -324,7 +330,6 @@ namespace Antigravity.Ide.Editor
                 }
             }
 
-            // 2. DLL References
             foreach (var compiledRef in assembly.compiledAssemblyReferences)
             {
                 var relativePath = FileUtility.MakeRelativeToProjectPath(compiledRef);
@@ -335,7 +340,6 @@ namespace Antigravity.Ide.Editor
             }
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
 
-            // FOOTER GENERATION (CRITICAL FOR VALIDITY)
             GetProjectFooter(projectBuilder);
             return projectBuilder.ToString();
         }
@@ -369,7 +373,6 @@ namespace Antigravity.Ide.Editor
         {
             headerBuilder = new StringBuilder();
 
-            // Standard MSBuild Header
             headerBuilder.Append(@"<?xml version=""1.0"" encoding=""utf-8""?>").Append(k_WindowsNewline);
             headerBuilder.Append($@"<Project ToolsVersion=""4.0"" DefaultTargets=""Build"" xmlns=""{MSBuildNamespaceUri}"">").Append(k_WindowsNewline);
             headerBuilder.Append(@"  ").Append(k_WindowsNewline);
@@ -379,7 +382,6 @@ namespace Antigravity.Ide.Editor
 
             GetProjectHeaderConfigurations(properties, headerBuilder);
 
-            // Standard Unity Settings
             headerBuilder.Append(@"  <PropertyGroup>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <NoConfig>true</NoConfig>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <NoStdLib>true</NoStdLib>").Append(k_WindowsNewline);
@@ -394,7 +396,6 @@ namespace Antigravity.Ide.Editor
 
         private Dictionary<string, string> GenerateAllAssetProjectParts()
         {
-            // Placeholder for asset handling if needed in future
             return new Dictionary<string, string>();
         }
 
@@ -516,7 +517,6 @@ namespace Antigravity.Ide.Editor
 
         internal virtual void GetProjectFooter(StringBuilder footerBuilder)
         {
-            // CRITICAL FIX: The previous version was empty. This imports the C# targets so it actually builds.
             footerBuilder.Append(string.Join(k_WindowsNewline,
                 $"  <Import Project=\"{@"$(MSBuildToolsPath)\Microsoft.CSharp.targets".NormalizePathSeparators()}\" />",
                 @"  <Target Name=""GenerateTargetFrameworkMonikerAttribute"" />",
