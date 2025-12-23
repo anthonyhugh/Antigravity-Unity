@@ -45,14 +45,14 @@ namespace Antigravity.Ide.Editor
         internal static readonly Regex InvalidCharactersRegexPattern = new Regex(@"[<>:""|?*]");
 
         private readonly string m_SolutionProjectEntryTemplate = string.Join(k_WindowsNewline,
-            @"Project(""{0}"") = ""{1}"", ""{2}"", ""{3}""",
+            @"Project(""{{{0}}}"") = ""{1}"", ""{2}"", ""{{{3}}}""",
             @"{4}EndProject").Replace("    ", "\t");
 
         private readonly string m_SolutionProjectConfigurationTemplate = string.Join(k_WindowsNewline,
-            @"		{0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU",
-            @"		{0}.Debug|Any CPU.Build.0 = Debug|Any CPU",
-            @"		{0}.Release|Any CPU.ActiveCfg = Release|Any CPU",
-            @"		{0}.Release|Any CPU.Build.0 = Release|Any CPU").Replace("    ", "\t");
+            @"		{{{0}}}.Debug|Any CPU.ActiveCfg = Debug|Any CPU",
+            @"		{{{0}}}.Debug|Any CPU.Build.0 = Debug|Any CPU",
+            @"		{{{0}}}.Release|Any CPU.ActiveCfg = Release|Any CPU",
+            @"		{{{0}}}.Release|Any CPU.Build.0 = Release|Any CPU").Replace("    ", "\t");
 
         static readonly string[] k_ReimportSyncExtensions = { ".dll", ".asmdef" };
 
