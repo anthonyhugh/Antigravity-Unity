@@ -16,12 +16,9 @@ namespace Antigravity.Ide.Editor
     {
         internal override string StyleName => "SDK";
 
-        // FIX: Removed the SdkStyleAssemblyNameProvider class that was stripping flags.
-        // We now use the standard AssemblyNameProvider directly.
-
         public SdkStyleProjectGeneration() : base(
             Directory.GetParent(Application.dataPath)?.FullName,
-            new AssemblyNameProvider(), // FIX: Use the standard provider, not the crippled one
+            new AssemblyNameProvider(), 
             new FileIOProvider(),
             new GUIDProvider())
         {
@@ -32,17 +29,15 @@ namespace Antigravity.Ide.Editor
             "Unity",
         };
 
+        // FIX: I removed "ProjectReferences", "AssemblyReferences", and "ReferenceManager..." 
+        // from this list. Previously, they were telling VS Code to ignore your references.
         internal static readonly string[] UnsupportedCapabilities = new string[]
         {
             "LaunchProfiles",
             "SharedProjectReferences",
             "ReferenceManagerSharedProjects",
-            "ProjectReferences",
-            "ReferenceManagerProjects",
             "COMReferences",
             "ReferenceManagerCOM",
-            "AssemblyReferences",
-            "ReferenceManagerAssemblies",
         };
 
         internal override void GetProjectHeader(ProjectProperties properties, out StringBuilder headerBuilder)
