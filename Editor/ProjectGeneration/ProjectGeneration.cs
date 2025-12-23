@@ -325,17 +325,14 @@ namespace Antigravity.Ide.Editor
                 if (projectReferences.Contains(referenceName))
                     continue;
 
-                string relativePath = FileUtility.MakeRelativeToProjectPath(compiledRef);
+                // Force absolute path for Unity Assemblies
+                string pathToWrite = compiledRef;
                 
-                if (string.IsNullOrEmpty(relativePath))
-                {
-                    relativePath = compiledRef;
-                }
-                
-                relativePath = relativePath.Replace('\\', '/');
+                // IMPORTANT: Normalize slashes and Escape for XML
+                pathToWrite = pathToWrite.Replace('\\', '/');
                 
                 projectBuilder.Append(@"    <Reference Include=""").Append(XmlFilename(referenceName)).Append(@""">").Append(k_WindowsNewline);
-                projectBuilder.Append(@"        <HintPath>").Append(XmlFilename(relativePath)).Append(@"</HintPath>").Append(k_WindowsNewline);
+                projectBuilder.Append(@"        <HintPath>").Append(XmlFilename(pathToWrite)).Append(@"</HintPath>").Append(k_WindowsNewline);
                 projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
             }
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);

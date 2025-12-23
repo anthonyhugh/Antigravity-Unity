@@ -64,10 +64,8 @@ namespace Antigravity.Ide.Editor
             headerBuilder.Append(@"    <AssemblyName>").Append(properties.AssemblyName).Append(@"</AssemblyName>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <ProjectGuid>{").Append(properties.ProjectGuid).Append(@"}</ProjectGuid>").Append(k_WindowsNewline);
             
-            // CRITICAL FIX: Use net471 to match Unity Editor environment. 
-            // netstandard2.1 fails to load system references correctly in VS Code for Unity projects.
-            headerBuilder.Append(@"    <TargetFramework>net471</TargetFramework>").Append(k_WindowsNewline);
-            headerBuilder.Append(@"    <DisableImplicitFrameworkReferences>false</DisableImplicitFrameworkReferences>").Append(k_WindowsNewline);
+            // FIX: Reverting to netstandard2.1 to resolve conflicts with Unity Package references
+            headerBuilder.Append(@"    <TargetFramework>netstandard2.1</TargetFramework>").Append(k_WindowsNewline);
             
             headerBuilder.Append(@"    <BaseDirectory>.</BaseDirectory>").Append(k_WindowsNewline);
             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
