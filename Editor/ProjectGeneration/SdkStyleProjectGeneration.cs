@@ -18,7 +18,7 @@ namespace Antigravity.Ide.Editor
 
         public SdkStyleProjectGeneration() : base(
             Directory.GetParent(Application.dataPath)?.FullName,
-            new AssemblyNameProvider(), 
+            new AssemblyNameProvider(),
             new FileIOProvider(),
             new GUIDProvider())
         {
@@ -63,10 +63,12 @@ namespace Antigravity.Ide.Editor
             headerBuilder.Append(@"    <AppDesignerFolder>Properties</AppDesignerFolder>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <AssemblyName>").Append(properties.AssemblyName).Append(@"</AssemblyName>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <ProjectGuid>{").Append(properties.ProjectGuid).Append(@"}</ProjectGuid>").Append(k_WindowsNewline);
-            
-            // FIX: Reverting to netstandard2.1 to resolve conflicts with Unity Package references
+
+            // FIX: Target netstandard2.1 to match Unity packages.
+            // FIX: Disable implicit refs so we can manually add Unity's System DLLs without conflicts.
             headerBuilder.Append(@"    <TargetFramework>netstandard2.1</TargetFramework>").Append(k_WindowsNewline);
-            
+            headerBuilder.Append(@"    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>").Append(k_WindowsNewline);
+
             headerBuilder.Append(@"    <BaseDirectory>.</BaseDirectory>").Append(k_WindowsNewline);
             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
 

@@ -306,7 +306,7 @@ namespace Antigravity.Ide.Editor
             projectBuilder.Append(@"  </ItemGroup>").Append(k_WindowsNewline);
 
             projectBuilder.Append(@"  <ItemGroup>").Append(k_WindowsNewline);
-            
+
             var projectReferences = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var referenceName in assembly.references)
@@ -325,12 +325,14 @@ namespace Antigravity.Ide.Editor
                 if (projectReferences.Contains(referenceName))
                     continue;
 
-                // Force absolute path for Unity Assemblies
+                // FIX: ALWAYS use the absolute path from compiledRef.
+                // This prevents issues where 'MakeRelativeToProjectPath' returns null for external DLLs
+                // or where VS Code fails to resolve relative paths jumping out of root.
                 string pathToWrite = compiledRef;
-                
-                // IMPORTANT: Normalize slashes and Escape for XML
+
+                // Normalize slashes for XML safety
                 pathToWrite = pathToWrite.Replace('\\', '/');
-                
+
                 projectBuilder.Append(@"    <Reference Include=""").Append(XmlFilename(referenceName)).Append(@""">").Append(k_WindowsNewline);
                 projectBuilder.Append(@"        <HintPath>").Append(XmlFilename(pathToWrite)).Append(@"</HintPath>").Append(k_WindowsNewline);
                 projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
