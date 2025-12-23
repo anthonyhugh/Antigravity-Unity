@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Unity Technologies.
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ * Copyright (c) Unity Technologies.
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 using System;
@@ -16,15 +16,12 @@ namespace Antigravity.Ide.Editor
     {
         internal override string StyleName => "SDK";
 
-        internal class SdkStyleAssemblyNameProvider : AssemblyNameProvider
-        {
-            // disable PlayerGeneration with SdkStyle projects
-            internal override ProjectGenerationFlag ProjectGenerationFlagImpl => base.ProjectGenerationFlagImpl & ~ProjectGenerationFlag.PlayerAssemblies;
-        }
+        // FIX: Removed the SdkStyleAssemblyNameProvider class that was stripping flags.
+        // We now use the standard AssemblyNameProvider directly.
 
         public SdkStyleProjectGeneration() : base(
             Directory.GetParent(Application.dataPath)?.FullName,
-            new SdkStyleAssemblyNameProvider(),
+            new AssemblyNameProvider(), // FIX: Use the standard provider, not the crippled one
             new FileIOProvider(),
             new GUIDProvider())
         {
@@ -53,17 +50,13 @@ namespace Antigravity.Ide.Editor
             headerBuilder = new StringBuilder();
 
             headerBuilder.Append(@"<Project ToolsVersion=""Current"">").Append(k_WindowsNewline);
-            headerBuilder.Append(@"  <!-- Generated file, do not modify, your changes will be overwritten (use AssetPostprocessor.OnGeneratedCSProject) -->").Append(k_WindowsNewline);
+            headerBuilder.Append(@"  ").Append(k_WindowsNewline);
 
-            // Prevent circular dependency issues see https://github.com/microsoft/vscode-dotnettools/issues/401
-            // We need a dedicated subfolder for each project in obj, else depending on the build order, nuget cache files could be overwritten
-            // We need to do this before common.props, else we'll have a MSB3539 The value of the property "BaseIntermediateOutputPath" was modified after it was used by MSBuild
             headerBuilder.Append(@"  <PropertyGroup>").Append(k_WindowsNewline);
             headerBuilder.Append($"    <BaseIntermediateOutputPath>{@"Temp\obj\$(Configuration)\$(MSBuildProjectName)".NormalizePathSeparators()}</BaseIntermediateOutputPath>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <IntermediateOutputPath>$(BaseIntermediateOutputPath)</IntermediateOutputPath>").Append(k_WindowsNewline);
             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
 
-            // Supported capabilities
             GetCapabilityBlock(headerBuilder, "Sdk.props", "Include", SupportedCapabilities);
 
             headerBuilder.Append(@"  <PropertyGroup>").Append(k_WindowsNewline);
@@ -79,9 +72,6 @@ namespace Antigravity.Ide.Editor
             headerBuilder.Append(@"    <AppDesignerFolder>Properties</AppDesignerFolder>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <AssemblyName>").Append(properties.AssemblyName).Append(@"</AssemblyName>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <ProjectGuid>{").Append(properties.ProjectGuid).Append(@"}</ProjectGuid>").Append(k_WindowsNewline);
-            // In the end, given we use NoConfig/NoStdLib (see below), hardcoding the target framework version will have no impact, even when targeting netstandard/net48 from Unity.
-            // But with SDK style we use netstandard2.1 (net471 for legacy), so 3rd party tools will not fail to work when .NETFW reference assemblies are not installed.
-            // Unity already selected proper API surface through referenced DLLs for us.
             headerBuilder.Append(@"    <TargetFramework>netstandard2.1</TargetFramework>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <BaseDirectory>.</BaseDirectory>").Append(k_WindowsNewline);
             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
@@ -94,7 +84,6 @@ namespace Antigravity.Ide.Editor
 
         internal override void AppendProjectReference(Assembly assembly, Assembly reference, StringBuilder projectBuilder)
         {
-            // If the current assembly is a Player project, we want to project-reference the corresponding Player project
             var referenceName = m_AssemblyNameProvider.GetAssemblyName(assembly.outputPath, reference.name);
             var projectReferenceGuid = ProjectGuid(reference);
             projectBuilder.Append(@"    <ProjectReference Include=""").Append(referenceName).Append(GetProjectExtension()).Append(@""">").Append(k_WindowsNewline);
@@ -105,9 +94,7 @@ namespace Antigravity.Ide.Editor
 
         internal override void GetProjectFooter(StringBuilder footerBuilder)
         {
-            // Unsupported capabilities
             GetCapabilityBlock(footerBuilder, "Sdk.targets", "Remove", UnsupportedCapabilities);
-
             footerBuilder.Append("</Project>").Append(k_WindowsNewline);
         }
 
