@@ -65,7 +65,7 @@ namespace Antigravity.Ide.Editor
             return UnityEditor.Compilation.CompilationPipeline.GetAssemblyNameFromScriptPath(path);
         }
 
-        internal static readonly string AssemblyOutput = @"Temp\bin\Debug\".NormalizePathSeparators();
+        internal static readonly string AssemblyOutput = @"Library\ScriptAssemblies\".NormalizePathSeparators();
         internal static readonly string PlayerAssemblyOutput = @"Temp\bin\Debug\Player\".NormalizePathSeparators();
 
         public IEnumerable<Assembly> GetAssemblies(Func<string, bool> shouldFileBePartOfSolution)

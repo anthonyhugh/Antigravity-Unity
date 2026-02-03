@@ -143,6 +143,13 @@ namespace Antigravity.Ide.Editor
             {
                 try
                 {
+                    if (ShouldSkipProject(assembly))
+                    {
+                        Debug.Log($"[Antigravity] Skipping project {assembly.name}");
+                        continue;
+                    }
+
+                    Debug.Log($"[Antigravity] Generating project {assembly.name}");
                     SyncProject(assembly, allAssetProjectParts, responseFilesData, newAssemblies);
                 }
                 catch (Exception e)
@@ -150,6 +157,11 @@ namespace Antigravity.Ide.Editor
                     Debug.LogError($"[Antigravity] Failed to generate project {assembly.name}: {e}");
                 }
             }
+        }
+
+        private bool ShouldSkipProject(Assembly assembly)
+        {
+            return !assembly.name.Contains("Assembly-CSharp") && !assembly.name.Contains("Antigravity.Ide.Editor");
         }
 
         public bool HasSolutionBeenGenerated() => m_FileIOProvider.Exists(SolutionFile());
@@ -229,6 +241,10 @@ namespace Antigravity.Ide.Editor
             headerBuilder.Append(@"    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <FileAlignment>512</FileAlignment>").Append(k_WindowsNewline);
             headerBuilder.Append(@"    <BaseDirectory>.</BaseDirectory>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <NoStdLib>true</NoStdLib>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <NoStandardLibraries>true</NoStandardLibraries>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <NoConfig>true</NoConfig>").Append(k_WindowsNewline);
+            headerBuilder.Append(@"    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>").Append(k_WindowsNewline);
             headerBuilder.Append(@"  </PropertyGroup>").Append(k_WindowsNewline);
 
             GetProjectHeaderConfigurations(properties, headerBuilder);
@@ -262,11 +278,15 @@ namespace Antigravity.Ide.Editor
 
         internal virtual void AppendProjectReference(Assembly assembly, Assembly reference, StringBuilder projectBuilder)
         {
-            var guid = ProjectGuid(reference);
-            projectBuilder.Append(@"    <ProjectReference Include=""").Append(reference.name).Append(@".csproj"">").Append(k_WindowsNewline);
-            projectBuilder.Append(@"        <Project>{").Append(guid).Append(@"}</Project>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"        <Name>").Append(reference.name).Append(@"</Name>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    </ProjectReference>").Append(k_WindowsNewline);
+            // var guid = ProjectGuid(reference);
+            // projectBuilder.Append(@"    <ProjectReference Include=""").Append(reference.name).Append(@".csproj"">").Append(k_WindowsNewline);
+            // projectBuilder.Append(@"        <Project>{").Append(guid).Append(@"}</Project>").Append(k_WindowsNewline);
+            // projectBuilder.Append(@"        <Name>").Append(reference.name).Append(@"</Name>").Append(k_WindowsNewline);
+            // projectBuilder.Append(@"    </ProjectReference>").Append(k_WindowsNewline);
+            var relativePath = Path.Combine(reference.outputPath, reference.name + ".dll").Replace('\\', '/');
+            projectBuilder.Append(@"    <Reference Include=""").Append(XmlFilename(reference.name)).Append(@""">").Append(k_WindowsNewline);
+            projectBuilder.Append(@"        <HintPath>").Append(XmlFilename(relativePath)).Append(@"</HintPath>").Append(k_WindowsNewline);
+            projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
         }
 
         internal virtual void GetProjectFooter(StringBuilder footerBuilder)
@@ -312,11 +332,13 @@ namespace Antigravity.Ide.Editor
             }
 
             // CRITICAL FIX: Absolute paths for compiled references
-            foreach (var compiledRef in assembly.compiledAssemblyReferences)
+            var compiledRefs = assembly.compiledAssemblyReferences.ToList();
+            foreach (var compiledRef in compiledRefs)
             {
                 string fullPath = Path.GetFullPath(compiledRef).Replace('\\', '/');
                 string name = Path.GetFileNameWithoutExtension(fullPath);
 
+                projectBuilder.Append(@"<!-- Compiled Assembly -->").Append(k_WindowsNewline);
                 projectBuilder.Append(@"    <Reference Include=""").Append(XmlFilename(name)).Append(@""">").Append(k_WindowsNewline);
                 projectBuilder.Append(@"        <HintPath>").Append(XmlFilename(fullPath)).Append(@"</HintPath>").Append(k_WindowsNewline);
                 projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
@@ -376,6 +398,11 @@ namespace Antigravity.Ide.Editor
 
             foreach (var assembly in relevantAssemblies)
             {
+                if (ShouldSkipProject(assembly))
+                {
+                    continue;
+                }
+
                 var guid = ProjectGuid(assembly);
                 var filename = Path.GetFileName(ProjectFile(assembly));
 
