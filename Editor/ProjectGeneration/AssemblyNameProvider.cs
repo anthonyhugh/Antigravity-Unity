@@ -65,7 +65,8 @@ namespace Antigravity.Ide.Editor
             return UnityEditor.Compilation.CompilationPipeline.GetAssemblyNameFromScriptPath(path);
         }
 
-        internal static readonly string AssemblyOutput = @"Library\ScriptAssemblies\".NormalizePathSeparators();
+        internal static readonly string AssemblyOutput = @"Temp\bin\Debug\".NormalizePathSeparators();
+        internal static readonly string ScriptAssemblyOutput = @"Library\ScriptAssemblies\".NormalizePathSeparators();
         internal static readonly string PlayerAssemblyOutput = @"Temp\bin\Debug\Player\".NormalizePathSeparators();
 
         public IEnumerable<Assembly> GetAssemblies(Func<string, bool> shouldFileBePartOfSolution)
@@ -96,7 +97,7 @@ namespace Antigravity.Ide.Editor
 
                     yield return new Assembly(
                         assembly.name,
-                        outputPath,
+                        assembly.name.StartsWith("Unity") ? ScriptAssemblyOutput : outputPath,  // Unity assemblies go to ScriptAssemblies, others go to Temp/bin/Debug
                         assembly.sourceFiles,
                         assembly.defines,
                         assembly.assemblyReferences?.Select(r => r.name).ToArray() ?? new string[0],

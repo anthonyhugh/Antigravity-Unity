@@ -143,9 +143,8 @@ namespace Antigravity.Ide.Editor
             {
                 try
                 {
-                    if (ShouldSkipProject(assembly))
+                    if (IsUnityLibrary(assembly))
                     {
-                        Debug.Log($"[Antigravity] Skipping project {assembly.name}");
                         continue;
                     }
 
@@ -159,9 +158,9 @@ namespace Antigravity.Ide.Editor
             }
         }
 
-        private bool ShouldSkipProject(Assembly assembly)
+        private bool IsUnityLibrary(Assembly assembly)
         {
-            return !assembly.name.Contains("Assembly-CSharp") && !assembly.name.Contains("Antigravity.Ide.Editor");
+            return assembly.name.StartsWith("Unity");
         }
 
         public bool HasSolutionBeenGenerated() => m_FileIOProvider.Exists(SolutionFile());
@@ -278,15 +277,22 @@ namespace Antigravity.Ide.Editor
 
         internal virtual void AppendProjectReference(Assembly assembly, Assembly reference, StringBuilder projectBuilder)
         {
-            // var guid = ProjectGuid(reference);
-            // projectBuilder.Append(@"    <ProjectReference Include=""").Append(reference.name).Append(@".csproj"">").Append(k_WindowsNewline);
-            // projectBuilder.Append(@"        <Project>{").Append(guid).Append(@"}</Project>").Append(k_WindowsNewline);
-            // projectBuilder.Append(@"        <Name>").Append(reference.name).Append(@"</Name>").Append(k_WindowsNewline);
-            // projectBuilder.Append(@"    </ProjectReference>").Append(k_WindowsNewline);
-            var relativePath = Path.Combine(reference.outputPath, reference.name + ".dll").Replace('\\', '/');
-            projectBuilder.Append(@"    <Reference Include=""").Append(XmlFilename(reference.name)).Append(@""">").Append(k_WindowsNewline);
-            projectBuilder.Append(@"        <HintPath>").Append(XmlFilename(relativePath)).Append(@"</HintPath>").Append(k_WindowsNewline);
-            projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
+            // Unity libraries reference the dll directly instead of compiling the project
+            if (IsUnityLibrary(reference))
+            {
+                var relativePath = Path.Combine(reference.outputPath, reference.name + ".dll").Replace('\\', '/');
+                projectBuilder.Append(@"    <Reference Include=""").Append(XmlFilename(reference.name)).Append(@""">").Append(k_WindowsNewline);
+                projectBuilder.Append(@"        <HintPath>").Append(XmlFilename(relativePath)).Append(@"</HintPath>").Append(k_WindowsNewline);
+                projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
+            }
+            else
+            {
+                var guid = ProjectGuid(reference);
+                projectBuilder.Append(@"    <ProjectReference Include=""").Append(reference.name).Append(@".csproj"">").Append(k_WindowsNewline);
+                projectBuilder.Append(@"        <Project>{").Append(guid).Append(@"}</Project>").Append(k_WindowsNewline);
+                projectBuilder.Append(@"        <Name>").Append(reference.name).Append(@"</Name>").Append(k_WindowsNewline);
+                projectBuilder.Append(@"    </ProjectReference>").Append(k_WindowsNewline);
+            }
         }
 
         internal virtual void GetProjectFooter(StringBuilder footerBuilder)
@@ -333,12 +339,12 @@ namespace Antigravity.Ide.Editor
 
             // CRITICAL FIX: Absolute paths for compiled references
             var compiledRefs = assembly.compiledAssemblyReferences.ToList();
+            projectBuilder.Append(@"<!-- Compiled Assembly Below -->").Append(k_WindowsNewline);
             foreach (var compiledRef in compiledRefs)
             {
                 string fullPath = Path.GetFullPath(compiledRef).Replace('\\', '/');
                 string name = Path.GetFileNameWithoutExtension(fullPath);
 
-                projectBuilder.Append(@"<!-- Compiled Assembly -->").Append(k_WindowsNewline);
                 projectBuilder.Append(@"    <Reference Include=""").Append(XmlFilename(name)).Append(@""">").Append(k_WindowsNewline);
                 projectBuilder.Append(@"        <HintPath>").Append(XmlFilename(fullPath)).Append(@"</HintPath>").Append(k_WindowsNewline);
                 projectBuilder.Append(@"    </Reference>").Append(k_WindowsNewline);
@@ -398,7 +404,7 @@ namespace Antigravity.Ide.Editor
 
             foreach (var assembly in relevantAssemblies)
             {
-                if (ShouldSkipProject(assembly))
+                if (IsUnityLibrary(assembly))
                 {
                     continue;
                 }
